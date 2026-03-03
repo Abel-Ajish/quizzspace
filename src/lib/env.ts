@@ -9,6 +9,7 @@ const envSchema = z.object({
   PUSHER_SECRET: z.string().optional(),
   NEXT_PUBLIC_PUSHER_CLUSTER: z.string().optional(),
   TOTP_SECRET: z.string().optional(),
+  MASTER_PASSWORD: z.string().optional(),
   NEXT_PUBLIC_API_URL: z.string().optional(),
 });
 

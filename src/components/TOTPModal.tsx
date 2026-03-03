@@ -8,7 +8,7 @@ interface TOTPModalProps {
 }
 
 export function TOTPModal({ onSuccess }: TOTPModalProps) {
-  const [token, setToken] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -20,7 +20,7 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
       const response = await fetch('/api/auth/totp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ password }),
       });
 
       const data = await response.json();
@@ -28,8 +28,8 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
       if (data.valid) {
         onSuccess();
       } else {
-        setError(data.error || 'Invalid authentication code. Please try again.');
-        setToken('');
+        setError(data.error || 'Invalid password. Please try again.');
+        setPassword('');
       }
     } catch (err) {
       setError('Error verifying token. Please try again.');
@@ -53,7 +53,7 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
             Master Password Required
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Enter your authentication code to create a new quiz
+            Enter your admin password to create a new quiz
           </p>
         </div>
 
@@ -65,21 +65,20 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
-            Authentication Code
+            Admin Password
           </label>
           <Input
-            type="text"
-            placeholder="000000"
-            value={token}
-            onChange={(e) => setToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            type="password"
+            placeholder="Enter password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             onKeyPress={handleKeyPress}
-            maxLength={6}
-            className="text-center text-2xl tracking-widest font-mono"
+            className="text-center text-lg"
             disabled={isVerifying}
             autoFocus
           />
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Use your authenticator app (Google Authenticator, Authy, etc.)
+            Contact the host/admin if you do not have access.
           </p>
         </div>
 
@@ -89,9 +88,9 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
           className="w-full"
           isLoading={isVerifying}
           onClick={handleVerify}
-          disabled={token.length !== 6}
+          disabled={!password.trim()}
         >
-          Verify Code
+          Verify Password
         </Button>
       </Card>
     </div>

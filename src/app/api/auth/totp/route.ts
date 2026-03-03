@@ -1,10 +1,7 @@
 import { NextRequest } from 'next/server';
-import speakeasy from 'speakeasy';
 import { successResponse, handleErrorResponse } from '@/lib/api-errors';
 import { getEnv } from '@/lib/env';
 import { checkRateLimit, getRequestIdentifier } from '@/lib/rate-limit';
-
-const TOTP_DIGITS = 6;
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,29 +18,23 @@ export async function POST(req: NextRequest) {
       return successResponse({ error: 'Invalid JSON body' }, 400);
     }
 
-    const { token } = body as { token?: string };
+    const { password } = body as { password?: string };
 
-    if (!token || typeof token !== 'string') {
-      return successResponse({ error: 'Token is required' }, 400);
+    if (!password || typeof password !== 'string') {
+      return successResponse({ error: 'Password is required' }, 400);
     }
 
     const env = getEnv();
-    if (!env.TOTP_SECRET) {
-      return successResponse({ error: 'TOTP is not configured on server' }, 503);
+    if (!env.MASTER_PASSWORD) {
+      return successResponse({ error: 'Master password is not configured on server' }, 503);
     }
 
-    const verified = speakeasy.totp.verify({
-      secret: env.TOTP_SECRET,
-      encoding: 'base32',
-      token: token,
-      digits: TOTP_DIGITS,
-      window: 2, // Allow 2 windows of drift
-    });
+    const verified = password === env.MASTER_PASSWORD;
 
     if (verified) {
       return successResponse({ valid: true });
     } else {
-      return successResponse({ valid: false, error: 'Invalid token' }, 401);
+      return successResponse({ valid: false, error: 'Invalid password' }, 401);
     }
   } catch (error) {
     return handleErrorResponse(error);
