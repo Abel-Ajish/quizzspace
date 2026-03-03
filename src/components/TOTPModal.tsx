@@ -46,7 +46,7 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md shadow-2xl">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
