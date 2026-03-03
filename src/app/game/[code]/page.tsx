@@ -547,7 +547,7 @@ export default function GamePage() {
                 <div
                   key={player.id}
                   className={`flex justify-between items-center p-3 rounded-lg transition-all duration-200 opacity-0 animate-[slideUp_0.3s_ease-out_forwards] ${
-                    player.id === currentPlayer.id
+                    currentPlayer && player.id === currentPlayer.id
                       ? 'bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 border-2 border-blue-500 font-bold'
                       : 'bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 hover:shadow-md'
                   }`}
@@ -555,7 +555,7 @@ export default function GamePage() {
                 >
                   <span className="font-medium text-slate-900 dark:text-white">
                     #{idx + 1} {player.name}
-                    {player.id === currentPlayer.id && <span className="ml-2 text-sm">⭐</span>}
+                    {currentPlayer && player.id === currentPlayer.id && <span className="ml-2 text-sm">⭐</span>}
                   </span>
                   <span className="font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
                     {player.score}
