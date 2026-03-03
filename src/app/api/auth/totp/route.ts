@@ -29,7 +29,10 @@ export async function POST(req: NextRequest) {
       return successResponse({ error: 'Master password is not configured on server' }, 503);
     }
 
-    const verified = password === env.MASTER_PASSWORD;
+    const inputPassword = password.trim();
+    const configuredPassword = env.MASTER_PASSWORD.trim();
+
+    const verified = inputPassword === configuredPassword;
 
     if (verified) {
       return successResponse({ valid: true });
