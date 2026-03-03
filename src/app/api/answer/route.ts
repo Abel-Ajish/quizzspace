@@ -4,10 +4,22 @@ import { handleErrorResponse, successResponse } from '@/lib/api-errors';
 import { prisma } from '@/lib/prisma';
 import { calculatePoints } from '@/lib/game-logic';
 import { broadcastToSession, eventNames } from '@/lib/pusher';
+import { checkRateLimit, getRequestIdentifier } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const ip = getRequestIdentifier(req);
+    const rate = checkRateLimit(`answer:submit:${ip}`, 300, 60_000);
+    if (!rate.allowed) {
+      return successResponse({ error: 'Too many requests. Please try again later.' }, 429);
+    }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return successResponse({ error: 'Invalid JSON body' }, 400);
+    }
     const validatedData = SubmitAnswerSchema.parse(body);
 
     // Get the session
@@ -23,6 +35,32 @@ export async function POST(req: NextRequest) {
       return successResponse({ error: 'Session not found' }, 404);
     }
 
+    if (session.status !== 'active') {
+      return successResponse({ error: 'Session is not active' }, 400);
+    }
+
+    // Verify the player still exists in this session (may have been removed)
+    const player = await prisma.player.findUnique({
+      where: { id: validatedData.playerId },
+    });
+
+    if (!player || player.sessionId !== session.id) {
+      return successResponse({ error: 'Player not found in this session' }, 403);
+    }
+
+    // Check for duplicate answer (same player + question)
+    const existingAnswer = await prisma.answer.findFirst({
+      where: {
+        playerId: validatedData.playerId,
+        questionId: validatedData.questionId,
+        sessionId: validatedData.sessionId,
+      },
+    });
+
+    if (existingAnswer) {
+      return successResponse({ error: 'Answer already submitted for this question' }, 409);
+    }
+
     // Get the question and selected choice
     const [question, selectedChoice] = await Promise.all([
       prisma.question.findUnique({
@@ -35,6 +73,14 @@ export async function POST(req: NextRequest) {
 
     if (!question || !selectedChoice) {
       return successResponse({ error: 'Invalid question or choice' }, 400);
+    }
+
+    if (question.quizId !== session.quizId) {
+      return successResponse({ error: 'Question does not belong to this session quiz' }, 400);
+    }
+
+    if (selectedChoice.questionId !== question.id) {
+      return successResponse({ error: 'Selected choice does not belong to question' }, 400);
     }
 
     // Determine if answer is correct
@@ -89,7 +135,7 @@ export async function POST(req: NextRequest) {
     return successResponse(
       {
         answer,
-        playerScore: updatedPlayers.find((p: any) => p.id === validatedData.playerId)
+        playerScore: updatedPlayers.find((p) => p.id === validatedData.playerId)
           ?.score,
       },
       201

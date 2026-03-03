@@ -4,6 +4,10 @@ import { useEffect, useRef } from 'react';
 import PusherJs from 'pusher-js';
 import { useGame } from './GameContext';
 
+type PlayerRemovedEvent = {
+  playerId?: string;
+};
+
 export function PusherProvider({ children }: { children: React.ReactNode }) {
   const pusherRef = useRef<PusherJs | null>(null);
   const { session, setSession, setGamePhase, isHost } = useGame();
@@ -56,12 +60,12 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
       };
 
       // Real-time event listeners
-      channel.bind('player_joined', (data: any) => {
+      channel.bind('player_joined', (data: unknown) => {
         console.log('Player joined:', data);
         fetchUpdatedSession();
       });
 
-      channel.bind('player_removed', (data: any) => {
+      channel.bind('player_removed', (data: PlayerRemovedEvent) => {
         console.log('Player removed:', data);
         fetchUpdatedSession();
         // If current player was removed, redirect to home
@@ -71,7 +75,7 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      channel.bind('question_start', (data: any) => {
+      channel.bind('question_start', (data: unknown) => {
         console.log('Question started:', data);
         fetchUpdatedSession();
         if (isHost) {
@@ -79,7 +83,7 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      channel.bind('leaderboard_update', (data: any) => {
+      channel.bind('leaderboard_update', (data: unknown) => {
         console.log('Leaderboard updated:', data);
         fetchUpdatedSession();
         if (isHost) {
@@ -87,7 +91,7 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      channel.bind('game_over', (data: any) => {
+      channel.bind('game_over', (data: unknown) => {
         console.log('Game over:', data);
         fetchUpdatedSession();
         if (isHost) {

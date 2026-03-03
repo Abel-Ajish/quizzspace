@@ -29,7 +29,7 @@ export function handleErrorResponse(error: unknown) {
     return NextResponse.json(
       {
         error: 'Validation failed',
-        details: (error as any).issues || [],
+        details: error.issues,
       },
       { status: 400 }
     );
@@ -52,7 +52,7 @@ export function handleErrorResponse(error: unknown) {
   );
 }
 
-export function successResponse(data: any, statusCode = 200) {
+export function successResponse(data: unknown, statusCode = 200) {
   return NextResponse.json(data, { status: statusCode });
 }
 

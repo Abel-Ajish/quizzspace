@@ -3,10 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Button, Input, Card, Tabs } from '@/components/ui';
-import { useGame } from '@/contexts/GameContext';
 
 export default function Home() {
-  const { reset } = useGame();
   const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
   const [joinCode, setJoinCode] = useState('');
   const [playerName, setPlayerName] = useState('');

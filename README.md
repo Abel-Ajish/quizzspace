@@ -63,6 +63,7 @@ A production-ready real-time quiz platform inspired by Kahoot and Quizizz, built
    Fill in your configuration:
    - `DATABASE_URL` - PostgreSQL connection string
    - `PUSHER_APP_ID`, `NEXT_PUBLIC_PUSHER_KEY`, `PUSHER_SECRET`, `NEXT_PUBLIC_PUSHER_CLUSTER`
+   - `TOTP_SECRET` - Base32 secret for TOTP verification
    - `NEXT_PUBLIC_API_URL` - Your app URL (localhost:3000 for development)
 
 4. **Setup database**
@@ -121,6 +122,7 @@ A production-ready real-time quiz platform inspired by Kahoot and Quizizz, built
 
 ### Answers
 - `POST /api/answer` - Submit answer and get points
+- `GET /api/health` - Runtime health check (DB + integrations)
 
 ## Scoring System
 
@@ -172,6 +174,7 @@ npm start
 # Database management
 npm run prisma:generate    # Generate Prisma client
 npm run prisma:migrate:dev # Create/apply migrations
+npm run prisma:migrate:deploy # Apply migrations in production
 npm run prisma:studio      # Open Prisma Studio UI
 
 # Linting
@@ -202,6 +205,7 @@ PUSHER_APP_ID=...
 NEXT_PUBLIC_PUSHER_KEY=...
 PUSHER_SECRET=...
 NEXT_PUBLIC_PUSHER_CLUSTER=mt1
+TOTP_SECRET=...
 NEXT_PUBLIC_API_URL=https://your-domain.vercel.app
 ```
 

@@ -41,7 +41,7 @@ interface Player {
 export default function HostDashboard() {
   const params = useParams();
   const router = useRouter();
-  const { setSession, setIsHost } = useGame();
+  const { setSession, setIsHost, setGamePhase } = useGame();
 
   const quizId = params.quizId as string;
 
@@ -51,14 +51,49 @@ export default function HostDashboard() {
   const [error, setError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
   const [sessionCreated, setSessionCreated] = useState(false);
+  const [shareStatus, setShareStatus] = useState('');
+  const joinCode = session?.joinCode;
+  const joinLink = typeof window !== 'undefined' && joinCode
+    ? `${window.location.origin}/join?code=${joinCode}`
+    : '';
+
+  const handleCopyLink = async () => {
+    if (!joinLink) return;
+    try {
+      await navigator.clipboard.writeText(joinLink);
+      setShareStatus('Join link copied!');
+      setTimeout(() => setShareStatus(''), 2000);
+    } catch {
+      setShareStatus('Could not copy link. Please copy it manually.');
+      setTimeout(() => setShareStatus(''), 3000);
+    }
+  };
+
+  const handleShareLink = async () => {
+    if (!joinLink) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: quiz?.title || 'Join my quiz',
+          text: 'Join my quiz lobby using this link:',
+          url: joinLink,
+        });
+        return;
+      }
+
+      await handleCopyLink();
+    } catch {
+      // Ignore cancelled share dialog
+    }
+  };
 
   // Poll for session updates
   useEffect(() => {
-    if (!session) return;
+    if (!joinCode) return;
 
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/session/${session.joinCode}`);
+        const response = await fetch(`/api/session/${joinCode}`);
         if (response.ok) {
           const updatedSession = await response.json();
           setSessionData(updatedSession);
@@ -69,7 +104,7 @@ export default function HostDashboard() {
     }, 1500); // Poll every 1.5 seconds
 
     return () => clearInterval(pollInterval);
-  }, [session?.joinCode]);
+  }, [joinCode]);
 
   // Fetch quiz data
   useEffect(() => {
@@ -107,6 +142,8 @@ export default function HostDashboard() {
       setSessionData(newSession);
       setSessionCreated(true);
       setIsHost(true);
+      // Also set in GameContext so Pusher and game page can access it
+      setSession(newSession);
     } catch (err) {
       setError('Failed to create session. Please try again.');
       console.error(err);
@@ -150,6 +187,7 @@ export default function HostDashboard() {
     if (!session) return;
 
     setIsStarting(true);
+    setError('');
     try {
       const response = await fetch('/api/session/control', {
         method: 'POST',
@@ -160,13 +198,22 @@ export default function HostDashboard() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to start game');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to start game');
+      }
 
-      const updatedSession = await response.json();
-      setSessionData(updatedSession);
+      // Fetch updated full session with quiz + players
+      const fullSessionRes = await fetch(`/api/session/${session.joinCode}`);
+      if (!fullSessionRes.ok) throw new Error('Failed to load session after starting');
+      const fullSession = await fullSessionRes.json();
+
+      setSessionData(fullSession);
+      setSession(fullSession); // Update GameContext
+      setGamePhase('question');
       router.push(`/game/${session.joinCode}`);
     } catch (err) {
-      setError('Failed to start game. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to start game. Please try again.');
       console.error(err);
     } finally {
       setIsStarting(false);
@@ -265,6 +312,28 @@ export default function HostDashboard() {
                 <p className="text-xs text-slate-600 dark:text-slate-400">
                   Players joined: <span className="font-bold">{session?.players?.length ?? 0}</span>
                 </p>
+
+                {joinLink && (
+                  <div className="mt-4 p-3 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">
+                      Share this direct join link (players only enter name):
+                    </p>
+                    <p className="text-xs break-all text-blue-700 dark:text-blue-300 mb-3">
+                      {joinLink}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={handleCopyLink}>
+                        Copy Link
+                      </Button>
+                      <Button variant="secondary" size="sm" className="flex-1" onClick={handleShareLink}>
+                        Share Link
+                      </Button>
+                    </div>
+                    {shareStatus && (
+                      <p className="text-xs text-green-700 dark:text-green-300 mt-2">{shareStatus}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {session?.players && session.players.length > 0 && (

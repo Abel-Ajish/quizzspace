@@ -4,10 +4,22 @@ import { handleErrorResponse, successResponse, ApiErrors } from '@/lib/api-error
 import { prisma } from '@/lib/prisma';
 import { isValidCode } from '@/lib/game-logic';
 import { broadcastToSession, eventNames } from '@/lib/pusher';
+import { checkRateLimit, getRequestIdentifier } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const ip = getRequestIdentifier(req);
+    const rate = checkRateLimit(`player:join:${ip}`, 60, 60_000);
+    if (!rate.allowed) {
+      return successResponse({ error: 'Too many requests. Please try again later.' }, 429);
+    }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return successResponse({ error: 'Invalid JSON body' }, 400);
+    }
     const validatedData = JoinSessionSchema.parse(body);
 
     if (!isValidCode(validatedData.code)) {
@@ -43,6 +55,14 @@ export async function POST(req: NextRequest) {
 
     if (session.status !== 'waiting') {
       throw ApiErrors.SESSION_NOT_ACTIVE;
+    }
+
+    const duplicateName = session.players.find(
+      (player) => player.name.trim().toLowerCase() === validatedData.playerName.trim().toLowerCase()
+    );
+
+    if (duplicateName) {
+      return successResponse({ error: 'Player name is already taken in this session' }, 409);
     }
 
     // Create player
@@ -81,8 +101,19 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { playerId, sessionId } = body;
+    const ip = getRequestIdentifier(req);
+    const rate = checkRateLimit(`player:remove:${ip}`, 120, 60_000);
+    if (!rate.allowed) {
+      return successResponse({ error: 'Too many requests. Please try again later.' }, 429);
+    }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return successResponse({ error: 'Invalid JSON body' }, 400);
+    }
+    const { playerId, sessionId } = body as { playerId?: string; sessionId?: string };
 
     if (!playerId || !sessionId) {
       return successResponse({ error: 'playerId and sessionId are required' }, 400);

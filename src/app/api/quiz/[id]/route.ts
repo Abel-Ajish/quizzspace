@@ -43,7 +43,7 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const quiz = await prisma.quiz.delete({
+    await prisma.quiz.delete({
       where: { id },
     });
 

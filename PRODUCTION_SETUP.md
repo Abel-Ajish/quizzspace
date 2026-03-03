@@ -29,6 +29,7 @@ PUSHER_APP_ID="your_app_id"
 NEXT_PUBLIC_PUSHER_KEY="your_public_key"
 PUSHER_SECRET="your_secret_key"
 NEXT_PUBLIC_PUSHER_CLUSTER="mt1"  # or your region: us2, eu, ap1, etc
+TOTP_SECRET="replace_with_strong_base32_secret"
 
 # Optional: API URL (for Vercel production)
 NEXT_PUBLIC_API_URL="https://your-domain.vercel.app"
@@ -60,11 +61,7 @@ npx prisma db seed
 ## Step 4: Run Development Server
 
 ```bash
-# On Windows:
-$env:NEXT_DISABLE_SWC=1; npm run dev
-
-# On macOS/Linux:
-NEXT_DISABLE_SWC=1 npm run dev
+npm run dev
 ```
 
 Open: http://localhost:3000
@@ -105,6 +102,7 @@ Open: http://localhost:3000
      PUSHER_SECRET
      NEXT_PUBLIC_PUSHER_KEY
      NEXT_PUBLIC_PUSHER_CLUSTER
+   TOTP_SECRET
      NEXT_PUBLIC_API_URL (optional)
      ```
 
@@ -136,11 +134,16 @@ Open: http://localhost:3000
 - Enable JavaScript in browser
 
 ### Build Fails on Vercel
-- Use `$env:NEXT_DISABLE_SWC=1` for local testing
-- On Vercel, disable SWC in Build & Development Settings:
-  ```
-  Build Command: NEXT_DISABLE_SWC=1 next build
-  ```
+- Ensure build command is `prisma generate && next build`
+- Ensure database migrations are applied before traffic cutover:
+   ```bash
+   npm run prisma:migrate:deploy
+   ```
+
+### Health Check Fails
+**Error:** `/api/health` returns non-200
+- Confirm `DATABASE_URL` is valid and database is reachable
+- Verify required env vars are configured in Vercel
 
 ---
 
@@ -154,6 +157,7 @@ Open: http://localhost:3000
 - [ ] `npx prisma migrate dev` completed
 - [ ] `npm run dev` starts without errors
 - [ ] http://localhost:3000 loads in browser
+- [ ] `GET /api/health` returns `{ status: "ok" }`
 - [ ] Can create quiz without errors
 - [ ] Can join game with code
 - [ ] Real-time updates work (leaderboard updates)

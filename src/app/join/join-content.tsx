@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, Alert, Button } from '@/components/ui';
+import { Card, Alert, Button, Input } from '@/components/ui';
 import { useGame } from '@/contexts/GameContext';
 
 export function JoinPageContent() {
@@ -11,64 +11,73 @@ export function JoinPageContent() {
   const { setSession, setCurrentPlayer } = useGame();
 
   const code = (searchParams.get('code') || '').toUpperCase();
-  const playerName = searchParams.get('name') || '';
+  const playerNameFromQuery = searchParams.get('name') || '';
 
+  const [nameInput, setNameInput] = useState(playerNameFromQuery ? decodeURIComponent(playerNameFromQuery) : '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const joinWithName = useCallback(
+    async (rawName: string) => {
+      if (!code) return;
+
+      const finalName = rawName.trim();
+      if (!finalName) {
+        setError('Player name is required');
+        return;
+      }
+
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const sessionRes = await fetch(`/api/session/${code}`);
+        if (!sessionRes.ok) {
+          throw new Error('Invalid join code or session not found');
+        }
+        const sessionData = await sessionRes.json();
+        setSession(sessionData);
+
+        const joinRes = await fetch('/api/player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code,
+            playerName: finalName,
+          }),
+        });
+
+        if (!joinRes.ok) {
+          const errorData = await joinRes.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to join session');
+        }
+
+        const { player } = await joinRes.json();
+        setCurrentPlayer(player);
+        sessionStorage.setItem('currentPlayerId', player.id);
+        router.push(`/lobby/${code}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to join session. Please try again.');
+        setIsLoading(false);
+      }
+    },
+    [code, router, setCurrentPlayer, setSession]
+  );
+
   useEffect(() => {
-    if (!code || !playerName) {
+    if (!code) {
       router.push('/');
       return;
     }
 
-    handleJoinSession();
-  }, [code, playerName]);
-
-  const handleJoinSession = async () => {
-    if (!code || !playerName) return;
-
-    setIsLoading(true);
-    setError('');
-
-    try {
-      // First, get session details
-      const sessionRes = await fetch(`/api/session/${code}`);
-      if (!sessionRes.ok) {
-        throw new Error('Invalid join code or session not found');
-      }
-      const sessionData = await sessionRes.json();
-      setSession(sessionData);
-
-      // Then join as a player
-      const joinRes = await fetch('/api/player', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code,
-          playerName: decodeURIComponent(playerName),
-        }),
-      });
-
-      if (!joinRes.ok) {
-        const errorData = await joinRes.json();
-        throw new Error(errorData.error || 'Failed to join session');
-      }
-
-      const { player } = await joinRes.json();
-      setCurrentPlayer(player);
-      
-      // Store player ID for removal detection
-      sessionStorage.setItem('currentPlayerId', player.id);
-
-      // Redirect to lobby
-      router.push(`/lobby/${code}`);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to join session. Please try again.'
-      );
-      setIsLoading(false);
+    if (playerNameFromQuery) {
+      joinWithName(decodeURIComponent(playerNameFromQuery));
     }
+  }, [code, playerNameFromQuery, router, joinWithName]);
+
+  const handleNameOnlyJoin = (e: React.FormEvent) => {
+    e.preventDefault();
+    joinWithName(nameInput);
   };
 
   if (isLoading) {
@@ -82,31 +91,60 @@ export function JoinPageContent() {
             Joining session...
           </p>
           <p className="text-sm text-slate-600 dark:text-slate-400 animate-slide-up">
-            {code} as <span className="font-medium">{playerName}</span>
+            {code} as <span className="font-medium">{playerNameFromQuery || nameInput}</span>
           </p>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
-        <Card className="max-w-md shadow-xl animate-scale-in">
-          <Alert variant="error" className="mb-4">
-            <span className="text-lg">❌</span> {error}
-          </Alert>
-          <Button
-            variant="primary"
-            className="w-full"
-            onClick={() => router.push('/')}
-          >
-            Return to Home
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
+      <Card className="w-full max-w-md shadow-xl animate-scale-in">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 text-center">
+          Join Quiz
+        </h1>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 text-center">
+          Code: <span className="font-bold tracking-wider">{code}</span>
+        </p>
 
-  return null;
+        {error && (
+          <Alert variant="error" className="mb-4">
+            {error}
+          </Alert>
+        )}
+
+        {!playerNameFromQuery && (
+          <form onSubmit={handleNameOnlyJoin} className="space-y-4">
+            <Input
+              label="Your Name"
+              placeholder="Enter your name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              maxLength={50}
+              disabled={isLoading}
+              error={error && !nameInput.trim() ? 'Name is required' : ''}
+            />
+            <Button type="submit" variant="primary" className="w-full" isLoading={isLoading}>
+              Join Lobby
+            </Button>
+          </form>
+        )}
+
+        {playerNameFromQuery && (
+          <Button variant="primary" className="w-full" onClick={() => joinWithName(decodeURIComponent(playerNameFromQuery))}>
+            Retry Join
+          </Button>
+        )}
+
+        <Button
+          variant="outline"
+          className="w-full mt-3"
+          onClick={() => router.push('/')}
+        >
+          Return to Home
+        </Button>
+      </Card>
+    </div>
+  );
 }

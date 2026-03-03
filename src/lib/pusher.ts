@@ -1,21 +1,26 @@
 import Pusher from 'pusher';
+import { getEnv } from '@/lib/env';
 
 // Create Pusher instance if credentials are available, otherwise mock it
 let pusherInstance: Pusher | null = null;
 
+const env = getEnv();
+
 if (
-  process.env.PUSHER_APP_ID &&
-  process.env.NEXT_PUBLIC_PUSHER_KEY &&
-  process.env.PUSHER_SECRET &&
-  process.env.NEXT_PUBLIC_PUSHER_CLUSTER
+  env.PUSHER_APP_ID &&
+  env.NEXT_PUBLIC_PUSHER_KEY &&
+  env.PUSHER_SECRET &&
+  env.NEXT_PUBLIC_PUSHER_CLUSTER
 ) {
   pusherInstance = new Pusher({
-    appId: process.env.PUSHER_APP_ID,
-    key: process.env.NEXT_PUBLIC_PUSHER_KEY,
-    secret: process.env.PUSHER_SECRET,
-    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+    appId: env.PUSHER_APP_ID,
+    key: env.NEXT_PUBLIC_PUSHER_KEY,
+    secret: env.PUSHER_SECRET,
+    cluster: env.NEXT_PUBLIC_PUSHER_CLUSTER,
     useTLS: true,
   });
+} else if (env.NODE_ENV === 'production') {
+  console.warn('Pusher env vars are missing; app will run with polling fallback.');
 }
 
 // Export a mock/real pusher instance
@@ -46,7 +51,7 @@ export const eventNames = {
 export async function broadcastToSession(
   code: string,
   event: string,
-  data: Record<string, any>
+  data: Record<string, unknown>
 ) {
   return pusher.trigger(channelNames.session(code), event, data);
 }
@@ -56,7 +61,7 @@ export async function sendToPlayer(
   sessionId: string,
   playerId: string,
   event: string,
-  data: Record<string, any>
+  data: Record<string, unknown>
 ) {
   return pusher.trigger(
     `${channelNames.playerSession(sessionId)}-${playerId}`,

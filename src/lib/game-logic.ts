@@ -10,7 +10,7 @@ export function calculatePoints(
   if (!isCorrect) return 0;
 
   // Base points for correct answer
-  let points = BASE_POINTS;
+  const points = BASE_POINTS;
 
   // Speed bonus: more points if answered faster
   // Maximum bonus at 1/3 of max time, no bonus at max time

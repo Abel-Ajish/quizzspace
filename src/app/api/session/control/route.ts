@@ -2,11 +2,23 @@ import { NextRequest } from 'next/server';
 import { handleErrorResponse, successResponse } from '@/lib/api-errors';
 import { prisma } from '@/lib/prisma';
 import { broadcastToSession, eventNames } from '@/lib/pusher';
+import { checkRateLimit, getRequestIdentifier } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { action, sessionId } = body;
+    const ip = getRequestIdentifier(req);
+    const rate = checkRateLimit(`session:control:${ip}`, 120, 60_000);
+    if (!rate.allowed) {
+      return successResponse({ error: 'Too many requests. Please try again later.' }, 429);
+    }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return successResponse({ error: 'Invalid JSON body' }, 400);
+    }
+    const { action, sessionId } = body as { action?: string; sessionId?: string };
 
     if (!sessionId) {
       return successResponse({ error: 'sessionId is required' }, 400);
@@ -39,6 +51,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'start') {
+      if (session.status !== 'waiting') {
+        return successResponse({ error: 'Session has already been started' }, 400);
+      }
+
+      if (session.players.length === 0) {
+        return successResponse({ error: 'Cannot start a game with no players' }, 400);
+      }
+
       // Start the game
       const updatedSession = await prisma.session.update({
         where: { id: sessionId },
@@ -46,6 +66,21 @@ export async function POST(req: NextRequest) {
           status: 'active',
           startedAt: new Date(),
           currentQuestionIndex: 0,
+        },
+        include: {
+          quiz: {
+            include: {
+              questions: {
+                orderBy: { orderIndex: 'asc' },
+                include: {
+                  choices: {
+                    select: { id: true, text: true },
+                  },
+                },
+              },
+            },
+          },
+          players: { orderBy: { score: 'desc' } },
         },
       });
 
@@ -60,6 +95,10 @@ export async function POST(req: NextRequest) {
 
       return successResponse(updatedSession);
     } else if (action === 'next') {
+      if (session.status !== 'active') {
+        return successResponse({ error: 'Session is not active' }, 400);
+      }
+
       // Move to next question
       const nextIndex = session.currentQuestionIndex + 1;
 
@@ -89,6 +128,21 @@ export async function POST(req: NextRequest) {
         where: { id: sessionId },
         data: {
           currentQuestionIndex: nextIndex,
+        },
+        include: {
+          quiz: {
+            include: {
+              questions: {
+                orderBy: { orderIndex: 'asc' },
+                include: {
+                  choices: {
+                    select: { id: true, text: true },
+                  },
+                },
+              },
+            },
+          },
+          players: { orderBy: { score: 'desc' } },
         },
       });
 

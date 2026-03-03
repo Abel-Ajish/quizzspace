@@ -27,13 +27,13 @@ interface SessionData {
 export default function LobbyPage() {
   const params = useParams();
   const router = useRouter();
-  const { currentPlayer, gamePhase, setGamePhase } = useGame();
+  const { currentPlayer, setGamePhase, reset, setWasRemoved } = useGame();
 
   const code = params.code as string;
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [removed, setRemoved] = useState(false);
 
   // Poll for session updates
   useEffect(() => {
@@ -50,6 +50,16 @@ export default function LobbyPage() {
         const data: SessionData = await response.json();
         setSession(data);
 
+        // Check if current player was removed from the session
+        const playerStillInSession = data.players.some(
+          (p) => p.id === currentPlayer.id
+        );
+        if (!playerStillInSession) {
+          setRemoved(true);
+          setWasRemoved(true);
+          return; // Stop further processing
+        }
+
         // If game starts, redirect to game page
         if (data.status === 'active') {
           setGamePhase('question');
@@ -57,7 +67,6 @@ export default function LobbyPage() {
         }
       } catch (err) {
         console.error('Failed to fetch session:', err);
-        setError('Failed to load session. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -68,7 +77,31 @@ export default function LobbyPage() {
     // Poll every 2 seconds
     const interval = setInterval(fetchSession, 2000);
     return () => clearInterval(interval);
-  }, [code, currentPlayer, router, setGamePhase]);
+  }, [code, currentPlayer, router, setGamePhase, setWasRemoved]);
+
+  // Handle removed state — show message then redirect
+  useEffect(() => {
+    if (removed) {
+      const timer = setTimeout(() => {
+        reset();
+        router.push('/');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [removed, reset, router]);
+
+  if (removed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-red-50 to-pink-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
+        <Card className="w-full max-w-md shadow-xl animate-scale-in">
+          <Alert variant="error">
+            <p className="text-lg font-bold">You have been removed</p>
+            <p className="text-sm mt-2">The host has removed you from this session. Redirecting to home...</p>
+          </Alert>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

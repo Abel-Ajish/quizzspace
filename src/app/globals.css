@@ -170,6 +170,13 @@ body {
     sans-serif;
 }
 
+/* Better mobile viewport height support across devices */
+@supports (min-height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}
+
 /* Animation utility classes */
 .animate-fade-in {
   animation: fadeIn var(--transition-smooth);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, Button, Alert } from '@/components/ui';
 import { useGame } from '@/contexts/GameContext';
@@ -39,7 +39,7 @@ interface Player {
 export default function GamePage() {
   const params = useParams();
   const router = useRouter();
-  const { currentPlayer, isHost, gamePhase, setGamePhase, hasSubmittedAnswer, setHasSubmittedAnswer } =
+  const { currentPlayer, isHost, gamePhase, setGamePhase, hasSubmittedAnswer, setHasSubmittedAnswer, wasRemoved, setWasRemoved, reset } =
     useGame();
 
   const code = params.code as string;
@@ -50,10 +50,72 @@ export default function GamePage() {
   const [error, setError] = useState('');
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [timeStarted, setTimeStarted] = useState<number>(0);
+  const [removed, setRemoved] = useState(false);
+  const currentQuestionIndex = session?.currentQuestionIndex;
+
+  const handleSubmitAnswer = useCallback(async () => {
+    if (!selectedChoiceId || !currentPlayer || !session) return;
+    if (removed || wasRemoved) return;
+
+    const currentQuestion = session.quiz.questions[session.currentQuestionIndex];
+    const timeTaken = Date.now() - timeStarted;
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: session.id,
+          playerId: currentPlayer.id,
+          questionId: currentQuestion.id,
+          selectedChoiceId,
+          timeTaken,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        if (errData.error === 'Player not found in this session') {
+          setRemoved(true);
+          setWasRemoved(true);
+          return;
+        }
+        throw new Error(errData.error || 'Failed to submit answer');
+      }
+
+      setHasSubmittedAnswer(true);
+      setGamePhase('leaderboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit answer');
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    selectedChoiceId,
+    currentPlayer,
+    session,
+    removed,
+    wasRemoved,
+    timeStarted,
+    setWasRemoved,
+    setHasSubmittedAnswer,
+    setGamePhase,
+  ]);
 
   // Fetch session data
   useEffect(() => {
+    // Allow host OR player to stay; redirect only if neither
     if (!currentPlayer && !isHost) {
+      router.push('/');
+      return;
+    }
+
+    // If this player was previously removed, redirect immediately
+    if (wasRemoved && !isHost) {
       router.push('/');
       return;
     }
@@ -65,6 +127,18 @@ export default function GamePage() {
 
         const data: SessionData = await response.json();
         setSession(data);
+
+        // For players (not host): check if they are still in the session
+        if (currentPlayer && !isHost) {
+          const playerStillInSession = data.players.some(
+            (p) => p.id === currentPlayer.id
+          );
+          if (!playerStillInSession) {
+            setRemoved(true);
+            setWasRemoved(true);
+            return;
+          }
+        }
 
         if (data.status === 'finished') {
           setGamePhase('finished');
@@ -79,17 +153,28 @@ export default function GamePage() {
     fetchSession();
     const sessionInterval = setInterval(fetchSession, 3000);
     return () => clearInterval(sessionInterval);
-  }, [code, currentPlayer, router, setGamePhase]);
+  }, [code, currentPlayer, isHost, router, setGamePhase, wasRemoved, setWasRemoved]);
+
+  // Handle removed state — show message then redirect
+  useEffect(() => {
+    if (removed) {
+      const timer = setTimeout(() => {
+        reset();
+        router.push('/');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [removed, reset, router]);
 
   // Reset answer state when question changes
   useEffect(() => {
-    if (!session) return;
+    if (currentQuestionIndex === undefined) return;
 
     setSelectedChoiceId(null);
     setHasSubmittedAnswer(false);
     setTimeStarted(0);
     setTimeLeft(0);
-  }, [session?.currentQuestionIndex, setHasSubmittedAnswer]);
+  }, [currentQuestionIndex, setHasSubmittedAnswer]);
 
   // Handle timer countdown
   useEffect(() => {
@@ -117,41 +202,20 @@ export default function GamePage() {
     }, 100);
 
     return () => clearInterval(timer);
-  }, [session, timeStarted, hasSubmittedAnswer, selectedChoiceId]);
+  }, [session, timeStarted, hasSubmittedAnswer, selectedChoiceId, handleSubmitAnswer]);
 
-  const handleSubmitAnswer = async () => {
-    if (!selectedChoiceId || !currentPlayer || !session) return;
-
-    const currentQuestion = session.quiz.questions[session.currentQuestionIndex];
-    const timeTaken = Date.now() - timeStarted;
-
-    setIsSubmitting(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/answer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: session.id,
-          playerId: currentPlayer.id,
-          questionId: currentQuestion.id,
-          selectedChoiceId,
-          timeTaken,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to submit answer');
-
-      setHasSubmittedAnswer(true);
-      setGamePhase('leaderboard');
-    } catch (err) {
-      setError('Failed to submit answer');
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  if (removed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-red-50 to-pink-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
+        <Card className="w-full max-w-md shadow-xl animate-scale-in">
+          <Alert variant="error">
+            <p className="text-lg font-bold">You have been removed</p>
+            <p className="text-sm mt-2">The host has removed you from this game. Redirecting to home...</p>
+          </Alert>
+        </Card>
+      </div>
+    );
+  }
 
   if (!session || (!currentPlayer && !isHost)) {
     return (
