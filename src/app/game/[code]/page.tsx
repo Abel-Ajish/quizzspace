@@ -51,6 +51,8 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [timeStarted, setTimeStarted] = useState<number>(0);
   const [removed, setRemoved] = useState(false);
+  const [hostCorrectChoiceId, setHostCorrectChoiceId] = useState<string | null>(null);
+  const [hostCorrectChoiceText, setHostCorrectChoiceText] = useState<string | null>(null);
   const currentQuestionIndex = session?.currentQuestionIndex;
 
   const handleSubmitAnswer = useCallback(async () => {
@@ -174,7 +176,29 @@ export default function GamePage() {
     setHasSubmittedAnswer(false);
     setTimeStarted(0);
     setTimeLeft(0);
+    setHostCorrectChoiceId(null);
+    setHostCorrectChoiceText(null);
   }, [currentQuestionIndex, setHasSubmittedAnswer]);
+
+  // Fetch correct answer for host display
+  useEffect(() => {
+    if (!isHost || !code || currentQuestionIndex === undefined) return;
+
+    const fetchHostAnswer = async () => {
+      try {
+        const res = await fetch(`/api/session/${code}/host-answer`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        setHostCorrectChoiceId(data.correctChoiceId ?? null);
+        setHostCorrectChoiceText(data.correctChoiceText ?? null);
+      } catch (err) {
+        console.error('Failed to fetch host correct answer:', err);
+      }
+    };
+
+    fetchHostAnswer();
+  }, [isHost, code, currentQuestionIndex]);
 
   // Handle timer countdown
   useEffect(() => {
@@ -403,13 +427,32 @@ export default function GamePage() {
                         {currentQuestion.choices.map((choice, idx) => (
                           <div
                             key={choice.id}
-                            className="p-4 rounded-lg bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-900 dark:text-white hover:shadow-md transition-all duration-200 border-l-4 border-blue-500 opacity-0 animate-[slideUp_0.3s_ease-out_forwards]"
+                            className={`p-4 rounded-lg text-slate-900 dark:text-white hover:shadow-md transition-all duration-200 border-l-4 opacity-0 animate-[slideUp_0.3s_ease-out_forwards] ${
+                              hostCorrectChoiceId === choice.id
+                                ? 'bg-green-100 dark:bg-green-900/30 border-green-500'
+                                : 'bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-blue-500'
+                            }`}
                             style={{ animationDelay: `${idx * 50}ms` }}
                           >
-                            {choice.text}
+                            <div className="flex items-center justify-between gap-3">
+                              <span>{choice.text}</span>
+                              {hostCorrectChoiceId === choice.id && (
+                                <span className="text-xs font-bold text-green-700 dark:text-green-300 bg-green-200 dark:bg-green-800 px-2 py-1 rounded">
+                                  Correct
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
+
+                      {hostCorrectChoiceText && (
+                        <div className="mt-4 p-3 rounded-lg border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+                          <p className="text-sm font-semibold text-green-700 dark:text-green-300">
+                            ✅ Correct Answer: {hostCorrectChoiceText}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     {session.currentQuestionIndex < session.quiz.questions.length - 1 ? (
                       <Button
@@ -598,35 +641,10 @@ export default function GamePage() {
           )}
         </Card>
 
-        {/* Leaderboard Preview */}
         <Card className="shadow-xl animate-scale-in">
-          <h3 className="font-bold mb-4 text-slate-900 dark:text-white text-center text-lg">
-            📊 Live Leaderboard (Top 5)
-          </h3>
-          <div className="space-y-2">
-            {session.players
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 5)
-              .map((player, idx) => (
-                <div
-                  key={player.id}
-                  className={`flex justify-between items-center p-3 rounded-lg transition-all duration-200 opacity-0 animate-[slideUp_0.3s_ease-out_forwards] ${
-                    currentPlayer && player.id === currentPlayer.id
-                      ? 'bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 border-2 border-blue-500 font-bold'
-                      : 'bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 hover:shadow-md'
-                  }`}
-                  style={{ animationDelay: `${idx * 40}ms` }}
-                >
-                  <span className="font-medium text-slate-900 dark:text-white">
-                    #{idx + 1} {player.name}
-                    {currentPlayer && player.id === currentPlayer.id && <span className="ml-2 text-sm">⭐</span>}
-                  </span>
-                  <span className="font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
-                    {player.score}
-                  </span>
-                </div>
-              ))}
-          </div>
+          <p className="text-center text-sm font-medium text-slate-700 dark:text-slate-300">
+            📊 Leaderboard is hidden during questions. It appears after each round.
+          </p>
         </Card>
       </div>
     </div>
