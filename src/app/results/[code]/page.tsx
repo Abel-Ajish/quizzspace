@@ -22,6 +22,10 @@ interface SessionData {
   players: Player[];
 }
 
+interface RankedPlayer extends Player {
+  rank: number;
+}
+
 export default function ResultsPage() {
   const params = useParams();
   const router = useRouter();
@@ -79,9 +83,34 @@ export default function ResultsPage() {
     );
   }
 
-  const sortedPlayers = [...session.players].sort((a, b) => b.score - a.score);
-  const playerRank = currentPlayer ? sortedPlayers.findIndex((p) => p.id === currentPlayer?.id) + 1 : 0;
-  const playerScore = currentPlayer ? sortedPlayers.find((p) => p.id === currentPlayer.id)?.score || 0 : 0;
+  const sortedPlayers = [...session.players].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+
+    const byName = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    if (byName !== 0) return byName;
+
+    return a.id.localeCompare(b.id);
+  });
+
+  let previousScore: number | null = null;
+  let currentRank = 0;
+  const rankedPlayers: RankedPlayer[] = sortedPlayers.map((player) => {
+    if (previousScore === null || player.score < previousScore) {
+      currentRank += 1;
+      previousScore = player.score;
+    }
+
+    return {
+      ...player,
+      rank: currentRank,
+    };
+  });
+
+  const currentPlayerEntry = currentPlayer
+    ? rankedPlayers.find((player) => player.id === currentPlayer.id)
+    : null;
+  const playerRank = currentPlayerEntry?.rank ?? 0;
+  const playerScore = currentPlayerEntry?.score ?? 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-slate-900 dark:to-slate-800 p-4 animate-fade-in">
@@ -115,9 +144,9 @@ export default function ResultsPage() {
           </h2>
 
           <div className="space-y-3">
-            {sortedPlayers.map((player, idx) => {
+            {rankedPlayers.map((player, idx) => {
               const medals = ['🥇', '🥈', '🥉'];
-              const medal = idx < 3 ? medals[idx] : '  ';
+              const medal = player.rank <= 3 ? medals[player.rank - 1] : '  ';
               const isCurrentPlayer = player.id === currentPlayer?.id;
 
               return (
@@ -135,7 +164,7 @@ export default function ResultsPage() {
                   <div className="flex items-center gap-4">
                     <span className="text-3xl w-8">{medal}</span>
                     <p className="text-slate-900 dark:text-white font-semibold">
-                      #{idx + 1} <span className="ml-2">{player.name}</span>
+                      #{player.rank} <span className="ml-2">{player.name}</span>
                       {isCurrentPlayer && !isHost && (
                         <span className="ml-3 text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-bold animate-pulse">
                           ⭐ You
