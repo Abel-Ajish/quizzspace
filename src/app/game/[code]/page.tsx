@@ -36,6 +36,10 @@ interface Player {
   score: number;
 }
 
+interface RankedPlayer extends Player {
+  rank: number;
+}
+
 interface AnswerFeedback {
   selectedChoiceId: string;
   correctChoiceId: string;
@@ -275,6 +279,28 @@ export default function GamePage() {
   const currentPlayerScore = currentPlayer
     ? session.players.find((player) => player.id === currentPlayer.id)?.score ?? 0
     : 0;
+  const sortedPlayers = [...session.players].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+
+    const byName = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    if (byName !== 0) return byName;
+
+    return a.id.localeCompare(b.id);
+  });
+
+  let previousScore: number | null = null;
+  let currentRank = 0;
+  const rankedPlayers: RankedPlayer[] = sortedPlayers.map((player) => {
+    if (previousScore === null || player.score < previousScore) {
+      currentRank += 1;
+      previousScore = player.score;
+    }
+
+    return {
+      ...player,
+      rank: currentRank,
+    };
+  });
 
   // Host control view
   if (isHost && !currentPlayer) {
@@ -317,8 +343,6 @@ export default function GamePage() {
 
     // Show fullscreen leaderboard when in leaderboard phase (answers submitted)
     if (gamePhase === 'leaderboard') {
-      const sortedPlayers = [...session.players].sort((a, b) => b.score - a.score);
-
       return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-slate-900 dark:to-slate-800 p-4 animate-fade-in">
           <div className="max-w-3xl mx-auto">
@@ -343,9 +367,9 @@ export default function GamePage() {
               </h2>
 
               <div className="space-y-3">
-                {sortedPlayers.map((player, idx) => {
+                {rankedPlayers.map((player, idx) => {
                   const medals = ['🥇', '🥈', '🥉'];
-                  const medal = idx < 3 ? medals[idx] : '  ';
+                  const medal = player.rank <= 3 ? medals[player.rank - 1] : '  ';
 
                   return (
                     <div
@@ -357,7 +381,7 @@ export default function GamePage() {
                         <span className="text-3xl w-8">{medal}</span>
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white">
-                            #{idx + 1} {player.name}
+                            #{player.rank} {player.name}
                           </p>
                         </div>
                       </div>
@@ -517,9 +541,7 @@ export default function GamePage() {
                   🏆 Leaderboard
                 </h3>
                 <div className="space-y-2">
-                  {session.players
-                    .sort((a, b) => b.score - a.score)
-                    .map((player, idx) => (
+                  {rankedPlayers.map((player, idx) => (
                       <div
                         key={player.id}
                         className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 hover:shadow-md transition-all duration-200 opacity-0 animate-[slideUp_0.3s_ease-out_forwards]"
@@ -527,7 +549,7 @@ export default function GamePage() {
                       >
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-slate-600 dark:text-slate-400 text-sm">
-                            #{idx + 1}
+                            #{player.rank}
                           </span>
                           <span className="font-medium text-slate-900 dark:text-white text-sm">
                             {player.name}
