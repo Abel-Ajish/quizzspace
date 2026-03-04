@@ -11,6 +11,7 @@ type PlayerRemovedEvent = {
 export function PusherProvider({ children }: { children: React.ReactNode }) {
   const pusherRef = useRef<PusherJs | null>(null);
   const pendingRefreshTimeoutRef = useRef<number | null>(null);
+  const sessionEtagRef = useRef<string | null>(null);
   const { session, setSession, setGamePhase, isHost } = useGame();
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
   // Subscribe to session channel when session is available
   useEffect(() => {
     if (!pusherRef.current || !session) return;
+    sessionEtagRef.current = null;
 
     try {
       const channel = pusherRef.current.subscribe(`session-${session.joinCode}`);
@@ -50,11 +52,27 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
       // Fetch updated session data from API
       const fetchUpdatedSession = async () => {
         try {
-          const response = await fetch(`/api/session/${session.joinCode}`);
-          if (response.ok) {
-            const updatedSession = await response.json();
-            setSession(updatedSession);
+          const response = await fetch(`/api/session/${session.joinCode}`, {
+            headers: sessionEtagRef.current
+              ? { 'If-None-Match': sessionEtagRef.current }
+              : undefined,
+          });
+
+          if (response.status === 304) {
+            return;
           }
+
+          if (!response.ok) {
+            throw new Error(`Session refresh failed (${response.status})`);
+          }
+
+          const nextEtag = response.headers.get('etag');
+          if (nextEtag) {
+            sessionEtagRef.current = nextEtag;
+          }
+
+          const updatedSession = await response.json();
+          setSession(updatedSession);
         } catch (err) {
           console.error('Failed to fetch updated session:', err);
         }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PusherJs from 'pusher-js';
 import { Card, Alert } from '@/components/ui';
@@ -37,6 +37,7 @@ export default function LobbyPage() {
   const [removed, setRemoved] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [showReconnected, setShowReconnected] = useState(false);
+  const sessionEtagRef = useRef<string | null>(null);
 
   // Poll for session updates
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function LobbyPage() {
       router.push('/');
       return;
     }
+    sessionEtagRef.current = null;
     let isPolling = false;
 
     const fetchSession = async () => {
@@ -53,8 +55,30 @@ export default function LobbyPage() {
 
       isPolling = true;
       try {
-        const response = await fetch(`/api/session/${code}?mode=lite`);
-        if (!response.ok) throw new Error('Session not found');
+        const response = await fetch(`/api/session/${code}?mode=lite`, {
+          headers: sessionEtagRef.current
+            ? { 'If-None-Match': sessionEtagRef.current }
+            : undefined,
+        });
+
+        if (response.status === 304) {
+          setIsReconnecting((prev) => {
+            if (prev) {
+              setShowReconnected(true);
+            }
+            return false;
+          });
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Session fetch failed (${response.status})`);
+        }
+
+        const nextEtag = response.headers.get('etag');
+        if (nextEtag) {
+          sessionEtagRef.current = nextEtag;
+        }
 
         const data: SessionData = await response.json();
 

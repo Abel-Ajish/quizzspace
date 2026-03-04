@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { handleErrorResponse, successResponse, ApiErrors } from '@/lib/api-errors';
 import { prisma } from '@/lib/prisma';
 import { isValidCode } from '@/lib/game-logic';
@@ -7,11 +8,17 @@ import { acquireLoadSlot } from '@/lib/load-balancer';
 
 type CachedSession = {
   data: unknown;
+  etag: string;
   expiresAt: number;
 };
 
 const liteSessionCache = new Map<string, CachedSession>();
 const LITE_CACHE_TTL_MS = 1200;
+
+function buildEtag(data: unknown): string {
+  const hash = createHash('sha1').update(JSON.stringify(data)).digest('hex');
+  return `W/"${hash}"`;
+}
 
 export async function GET(
   req: NextRequest,
@@ -35,6 +42,7 @@ export async function GET(
   try {
     const { code } = await params;
     const mode = req.nextUrl.searchParams.get('mode');
+    const ifNoneMatch = req.headers.get('if-none-match');
 
     if (!isValidCode(code)) {
       throw ApiErrors.INVALID_CODE;
@@ -44,7 +52,23 @@ export async function GET(
       const cacheKey = `${code}:lite`;
       const cached = liteSessionCache.get(cacheKey);
       if (cached && cached.expiresAt > Date.now()) {
-        return successResponse(cached.data);
+        if (ifNoneMatch && ifNoneMatch === cached.etag) {
+          return new NextResponse(null, {
+            status: 304,
+            headers: {
+              ETag: cached.etag,
+              'Cache-Control': 'private, no-cache',
+            },
+          });
+        }
+
+        return NextResponse.json(cached.data, {
+          status: 200,
+          headers: {
+            ETag: cached.etag,
+            'Cache-Control': 'private, no-cache',
+          },
+        });
       }
     }
 
@@ -110,10 +134,23 @@ export async function GET(
       throw ApiErrors.INVALID_CODE;
     }
 
+    const etag = buildEtag(session);
+
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          'Cache-Control': 'private, no-cache',
+        },
+      });
+    }
+
     if (mode === 'lite') {
       const cacheKey = `${code}:lite`;
       liteSessionCache.set(cacheKey, {
         data: session,
+        etag,
         expiresAt: Date.now() + LITE_CACHE_TTL_MS,
       });
 
@@ -127,7 +164,13 @@ export async function GET(
       }
     }
 
-    return successResponse(session);
+    return NextResponse.json(session, {
+      status: 200,
+      headers: {
+        ETag: etag,
+        'Cache-Control': 'private, no-cache',
+      },
+    });
   } catch (error) {
     return handleErrorResponse(error);
   } finally {

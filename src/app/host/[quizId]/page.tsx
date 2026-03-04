@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PusherJs from 'pusher-js';
 import { Button, Card, Alert } from '@/components/ui';
@@ -54,6 +54,7 @@ export default function HostDashboard() {
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [sessionCreated, setSessionCreated] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
+  const sessionEtagRef = useRef<string | null>(null);
   const joinCode = session?.joinCode;
   const joinLink = typeof window !== 'undefined' && joinCode
     ? `${window.location.origin}/join?code=${joinCode}`
@@ -92,6 +93,7 @@ export default function HostDashboard() {
   // Poll for session updates
   useEffect(() => {
     if (!joinCode) return;
+    sessionEtagRef.current = null;
     let isPolling = false;
 
     const fetchSession = async () => {
@@ -99,11 +101,27 @@ export default function HostDashboard() {
 
       isPolling = true;
       try {
-        const response = await fetch(`/api/session/${joinCode}?mode=lite`);
-        if (response.ok) {
-          const updatedSession = await response.json();
-          setSessionData(updatedSession);
+        const response = await fetch(`/api/session/${joinCode}?mode=lite`, {
+          headers: sessionEtagRef.current
+            ? { 'If-None-Match': sessionEtagRef.current }
+            : undefined,
+        });
+
+        if (response.status === 304) {
+          return;
         }
+
+        if (!response.ok) {
+          throw new Error(`Session fetch failed (${response.status})`);
+        }
+
+        const nextEtag = response.headers.get('etag');
+        if (nextEtag) {
+          sessionEtagRef.current = nextEtag;
+        }
+
+        const updatedSession = await response.json();
+        setSessionData(updatedSession);
       } catch (err) {
         console.error('Failed to poll session:', err);
       } finally {

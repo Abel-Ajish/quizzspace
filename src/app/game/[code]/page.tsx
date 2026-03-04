@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PusherJs from 'pusher-js';
 import { Card, Button, Alert } from '@/components/ui';
@@ -84,6 +84,7 @@ export default function GamePage() {
   const [hostCorrectChoiceText, setHostCorrectChoiceText] = useState<string | null>(null);
   const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback | null>(null);
   const currentQuestionIndex = session?.currentQuestionIndex;
+  const sessionEtagRef = useRef<string | null>(null);
 
   const mergeLiteSession = useCallback((data: LiteSessionData) => {
     setSession((current) => {
@@ -174,6 +175,7 @@ export default function GamePage() {
       router.push('/');
       return;
     }
+    sessionEtagRef.current = null;
     let isPolling = false;
 
     let hasFullSession = false;
@@ -183,8 +185,30 @@ export default function GamePage() {
       isPolling = true;
 
       try {
-        const response = await fetch(`/api/session/${code}?mode=lite`);
-        if (!response.ok) throw new Error('Session not found');
+        const response = await fetch(`/api/session/${code}?mode=lite`, {
+          headers: sessionEtagRef.current
+            ? { 'If-None-Match': sessionEtagRef.current }
+            : undefined,
+        });
+
+        if (response.status === 304) {
+          setIsReconnecting((prev) => {
+            if (prev) {
+              setShowReconnected(true);
+            }
+            return false;
+          });
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Session fetch failed (${response.status})`);
+        }
+
+        const nextEtag = response.headers.get('etag');
+        if (nextEtag) {
+          sessionEtagRef.current = nextEtag;
+        }
 
         const data: LiteSessionData = await response.json();
 
