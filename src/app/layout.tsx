@@ -27,7 +27,9 @@ export default function RootLayout({
       <body className="antialiased" suppressHydrationWarning>
         <GameProvider>
           <PusherProvider>
-            {children}
+            <div className="animate-fade-in animate-slide-up">
+              {children}
+            </div>
           </PusherProvider>
         </GameProvider>
       </body>

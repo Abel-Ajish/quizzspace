@@ -46,9 +46,9 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md shadow-2xl">
-        <div className="text-center mb-6">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
+      <Card className="w-full max-w-md shadow-2xl animate-pop-in">
+        <div className="text-center mb-6 animate-slide-down">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
             Master Password Required
           </h2>
@@ -58,12 +58,12 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
         </div>
 
         {error && (
-          <Alert variant="error" className="mb-6">
+          <Alert variant="error" className="mb-6 animate-slide-up">
             {error}
           </Alert>
         )}
 
-        <div className="mb-6">
+        <div className="mb-6 animate-slide-up animate-delay-100">
           <label className="block text-sm font-medium text-slate-900 dark:text-white mb-2">
             Admin Password
           </label>
@@ -85,7 +85,7 @@ export function TOTPModal({ onSuccess }: TOTPModalProps) {
         <Button
           variant="primary"
           size="lg"
-          className="w-full"
+          className="w-full animate-slide-up animate-delay-200"
           isLoading={isVerifying}
           onClick={handleVerify}
           disabled={!password.trim()}

@@ -345,16 +345,16 @@ export default function HostDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg text-slate-600">Loading quiz...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
+        <p className="text-lg text-slate-600 dark:text-slate-300 animate-slide-up">Loading quiz...</p>
       </div>
     );
   }
 
   if (!quiz) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Alert variant="error">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-red-50 to-pink-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
+        <Alert variant="error" className="animate-scale-in">
           <p className="font-semibold">Quiz not found</p>
           <button
             onClick={() => router.push('/')}
@@ -368,16 +368,16 @@ export default function HostDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-slate-900 dark:to-slate-800 p-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-slate-900 dark:to-slate-800 p-4 animate-fade-in">
+      <div className="max-w-2xl mx-auto animate-slide-up">
         <button
           onClick={() => router.push('/')}
-          className="mb-6 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
+          className="mb-6 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 transition-all duration-200 hover:translate-x-1"
         >
           ← Back to Home
         </button>
 
-        <Card className="shadow-xl mb-6">
+        <Card className="shadow-xl mb-6 animate-scale-in">
           <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-white">
             {quiz.title}
           </h1>
@@ -386,19 +386,19 @@ export default function HostDashboard() {
           </p>
 
           {error && (
-            <Alert variant="error" className="mb-6">
+            <Alert variant="error" className="mb-6 animate-slide-up">
               {error}
             </Alert>
           )}
 
           {!sessionCreated ? (
-            <div>
+            <div className="animate-fade-in">
               <h2 className="text-lg font-semibold mb-4">Get Started</h2>
               <p className="text-slate-600 dark:text-slate-400 mb-6">
                 Create a session to allow players to join with a join code.
               </p>
 
-              <div className="bg-blue-50 dark:bg-slate-700 p-4 rounded-lg mb-6">
+              <div className="bg-blue-50 dark:bg-slate-700 p-4 rounded-lg mb-6 animate-slide-up">
                 <h3 className="font-semibold mb-2 text-slate-900 dark:text-white">
                   How it works:
                 </h3>
@@ -421,15 +421,15 @@ export default function HostDashboard() {
               </Button>
             </div>
           ) : (
-            <div>
-              <div className="bg-green-50 dark:bg-slate-700 p-4 rounded-lg mb-6 border-l-4 border-green-500">
+            <div className="animate-fade-in">
+              <div className="bg-green-50 dark:bg-slate-700 p-4 rounded-lg mb-6 border-l-4 border-green-500 animate-slide-up">
                 <h3 className="font-semibold mb-2 text-slate-900 dark:text-white">
                   Session Created!
                 </h3>
                 <p className="text-sm mb-3 text-slate-700 dark:text-slate-300">
                   Share this code with your players:
                 </p>
-                <div className="bg-white dark:bg-slate-800 p-4 rounded text-3xl font-bold text-center tracking-widest text-blue-600 dark:text-blue-400 mb-4">
+                <div className="bg-white dark:bg-slate-800 p-4 rounded text-3xl font-bold text-center tracking-widest text-blue-600 dark:text-blue-400 mb-4 animate-pulse-soft">
                   {session?.joinCode}
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -437,7 +437,7 @@ export default function HostDashboard() {
                 </p>
 
                 {joinLink && (
-                  <div className="mt-4 p-3 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600">
+                  <div className="mt-4 p-3 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 animate-pop-in">
                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">
                       Share this direct join link (players only enter name):
                     </p>
@@ -460,21 +460,22 @@ export default function HostDashboard() {
               </div>
 
               {session?.status === 'locked' && (
-                <Alert variant="warning" className="mb-6">
+                <Alert variant="warning" className="mb-6 animate-slide-up">
                   🔒 Lobby is locked. New players cannot join until you unlock it.
                 </Alert>
               )}
 
               {session?.players && session.players.length > 0 && (
-                <div className="mb-6 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800">
+                <div className="mb-6 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 animate-slide-up">
                   <h3 className="font-semibold mb-3 text-slate-900 dark:text-white flex items-center gap-2">
                     👥 Players in Session ({session.players.length})
                   </h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {session.players.map((player) => (
+                    {session.players.map((player, idx) => (
                       <div
                         key={player.id}
-                        className="flex items-center justify-between p-3 rounded bg-white dark:bg-slate-700 hover:shadow-md transition-shadow"
+                        className="flex items-center justify-between p-3 rounded bg-white dark:bg-slate-700 hover:shadow-md transition-shadow opacity-0 animate-[slideUp_0.25s_ease-out_forwards]"
+                        style={{ animationDelay: `${idx * 40}ms` }}
                       >
                         <div className="flex-1">
                           <p className="font-medium text-slate-900 dark:text-white">
@@ -497,7 +498,7 @@ export default function HostDashboard() {
               )}
 
               {session && (session.status === 'waiting' || session.status === 'locked') && (
-                <div className="space-y-3">
+                <div className="space-y-3 animate-slide-up">
                   <Button
                     variant="secondary"
                     size="lg"
@@ -542,13 +543,17 @@ export default function HostDashboard() {
         </Card>
 
         {/* Quiz Overview */}
-        <Card className="shadow-xl">
+        <Card className="shadow-xl animate-slide-up animate-delay-100">
           <h2 className="text-xl font-bold mb -4 text-slate-900 dark:text-white">
             Quiz Overview
           </h2>
           <div className="space-y-3">
             {quiz.questions.map((q, idx) => (
-              <div key={q.id} className="p-3 rounded bg-slate-50 dark:bg-slate-700">
+              <div
+                key={q.id}
+                className="p-3 rounded bg-slate-50 dark:bg-slate-700 opacity-0 animate-[slideUp_0.3s_ease-out_forwards]"
+                style={{ animationDelay: `${idx * 45}ms` }}
+              >
                 <p className="font-medium text-sm text-slate-900 dark:text-white">
                   Q{idx + 1}: {q.text}
                 </p>

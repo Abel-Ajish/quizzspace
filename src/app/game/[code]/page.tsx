@@ -569,7 +569,7 @@ export default function GamePage() {
     if (gamePhase === 'leaderboard') {
       return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-slate-900 dark:to-slate-800 p-4 animate-fade-in">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto animate-slide-up">
             <div className="mb-8 text-center animate-slide-down">
               <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-3">
                 {session.quiz.title}
@@ -597,7 +597,7 @@ export default function GamePage() {
               </Alert>
             )}
 
-            <Card className="shadow-xl mb-6 animate-scale-in">
+            <Card className="shadow-xl mb-6 animate-scale-in animate-pop-in">
               <h2 className="text-2xl font-bold mb-6 text-slate-900 dark:text-white text-center">
                 🏆 Current Scores
               </h2>
@@ -630,7 +630,7 @@ export default function GamePage() {
               </div>
             </Card>
 
-            <div className="flex gap-3 animate-slide-up">
+            <div className="flex gap-3 animate-slide-up animate-delay-100">
               {session.currentQuestionIndex < session.quiz.questions.length - 1 ? (
                 <Button
                   variant="primary"
@@ -676,7 +676,7 @@ export default function GamePage() {
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-100 dark:from-slate-900 dark:to-slate-800 p-4 animate-fade-in">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto animate-slide-up">
           <div className="mb-6 flex justify-between items-start animate-slide-down">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
@@ -688,7 +688,7 @@ export default function GamePage() {
             </div>
             <button
               onClick={() => router.push('/')}
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors duration-200"
+              className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all duration-200 hover:translate-x-1"
             >
               Exit
             </button>
@@ -721,7 +721,7 @@ export default function GamePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Current Question */}
             <div className="lg:col-span-2 animate-scale-in">
-              <Card className="shadow-xl">
+              <Card className="shadow-xl animate-pop-in">
                 {currentQuestion ? (
                   <>
                     <div className="mb-6">
@@ -742,7 +742,7 @@ export default function GamePage() {
                             <div className="flex items-center justify-between gap-3">
                               <span>{choice.text}</span>
                               {hostCorrectChoiceId === choice.id && (
-                                <span className="text-xs font-bold text-green-700 dark:text-green-300 bg-green-200 dark:bg-green-800 px-2 py-1 rounded">
+                                <span className="text-xs font-bold text-green-700 dark:text-green-300 bg-green-200 dark:bg-green-800 px-2 py-1 rounded animate-pulse-soft">
                                   Correct
                                 </span>
                               )}
@@ -752,7 +752,7 @@ export default function GamePage() {
                       </div>
 
                       {hostCorrectChoiceText && (
-                        <div className="mt-4 p-3 rounded-lg border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+                        <div className="mt-4 p-3 rounded-lg border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 animate-pop-in">
                           <p className="text-sm font-semibold text-green-700 dark:text-green-300">
                             ✅ Correct Answer: {hostCorrectChoiceText}
                           </p>
@@ -810,7 +810,7 @@ export default function GamePage() {
             </div>
 
             {/* Leaderboard */}
-            <div className="animate-scale-in">
+            <div className="animate-scale-in animate-delay-100">
               <Card className="shadow-xl sticky top-4">
                 <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white text-center">
                   🏆 Leaderboard
@@ -847,13 +847,13 @@ export default function GamePage() {
   if (!currentQuestion) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
-        <Card className="w-full max-w-md animate-scale-in">
+        <Card className="w-full max-w-md animate-scale-in animate-pop-in">
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-1">⏳ Next Question Loading</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400">Waiting for host to proceed...</p>
             </div>
-            <div className="w-10 h-10 border-3 border-blue-300 border-t-blue-600 rounded-full animate-spin-slow"></div>
+            <div className="w-10 h-10 border-3 border-blue-300 border-t-blue-600 rounded-full animate-spin-slow animate-float-soft"></div>
           </div>
         </Card>
       </div>
@@ -866,7 +866,7 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-100 dark:from-slate-900 dark:to-slate-800 p-4 animate-fade-in">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto animate-slide-up">
         {/* Header */}
         <div className="mb-8 flex justify-between items-start animate-slide-down">
           <div>
@@ -880,12 +880,12 @@ export default function GamePage() {
 
           {/* Player Score + Timer */}
           <div className="text-right">
-            <div className="mb-2 inline-block px-3 py-1 rounded-lg bg-blue-100 dark:bg-blue-900 border border-blue-300 dark:border-blue-700">
+            <div className="mb-2 inline-block px-3 py-1 rounded-lg bg-blue-100 dark:bg-blue-900 border border-blue-300 dark:border-blue-700 animate-pop-in">
               <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
                 Score: {currentPlayerScore}
               </p>
             </div>
-            <div className={`text-5xl font-bold font-mono transition-all duration-300 ${timerColor} ${timeLeft < 5 ? 'animate-pulse' : ''}`}>
+            <div className={`text-5xl font-bold font-mono transition-all duration-300 ${timerColor} ${timeLeft < 5 ? 'animate-pulse-soft' : ''}`}>
               {timeLeft}s
             </div>
           </div>
@@ -916,7 +916,7 @@ export default function GamePage() {
         )}
 
         {/* Question Card */}
-        <Card className="shadow-xl mb-6 animate-scale-in">
+        <Card className="shadow-xl mb-6 animate-scale-in animate-pop-in">
           <h2 className="text-2xl font-bold mb-8 text-slate-900 dark:text-white">
             {currentQuestion.text}
           </h2>
@@ -965,12 +965,12 @@ export default function GamePage() {
                   <span className="flex-1">{choice.text}</span>
                   </div>
                   {hasSubmittedAnswer && answerFeedback && choice.id === answerFeedback.correctChoiceId && (
-                    <span className="text-xs font-bold px-2 py-1 rounded bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200">
+                    <span className="text-xs font-bold px-2 py-1 rounded bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 animate-pop-in">
                       Correct
                     </span>
                   )}
                   {hasSubmittedAnswer && answerFeedback && !answerFeedback.isCorrect && choice.id === answerFeedback.selectedChoiceId && (
-                    <span className="text-xs font-bold px-2 py-1 rounded bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200">
+                    <span className="text-xs font-bold px-2 py-1 rounded bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 animate-pop-in">
                       Wrong
                     </span>
                   )}
@@ -991,7 +991,7 @@ export default function GamePage() {
             <Button
               variant="primary"
               size="lg"
-              className="w-full mt-8 animate-slide-up"
+              className="w-full mt-8 animate-slide-up animate-delay-100"
               disabled={!selectedChoiceId || isSubmitting}
               isLoading={isSubmitting}
               onClick={handleSubmitAnswer}
@@ -999,7 +999,7 @@ export default function GamePage() {
               ✓ Submit Answer
             </Button>
           ) : (
-            <div className="mt-8 p-4 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-lg text-center border-2 border-slate-400 dark:border-slate-500 animate-slide-up">
+            <div className="mt-8 p-4 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-lg text-center border-2 border-slate-400 dark:border-slate-500 animate-slide-up animate-pop-in">
               <p className="font-bold text-slate-900 dark:text-white text-lg">
                 {hasSubmittedAnswer
                   ? answerFeedback?.isCorrect

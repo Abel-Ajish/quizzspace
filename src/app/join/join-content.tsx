@@ -94,9 +94,9 @@ export function JoinPageContent() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
-        <div className="text-center">
+        <div className="text-center animate-pop-in">
           <div className="inline-block mb-6">
-            <div className="w-16 h-16 border-4 border-blue-300 border-t-blue-600 rounded-full animate-spin-slow"></div>
+            <div className="w-16 h-16 border-4 border-blue-300 border-t-blue-600 rounded-full animate-spin-slow animate-float-soft"></div>
           </div>
           <p className="text-lg font-semibold text-slate-900 dark:text-white mb-2 animate-slide-up">
             Joining session...
@@ -111,7 +111,7 @@ export function JoinPageContent() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">
-      <Card className="w-full max-w-md shadow-xl animate-scale-in">
+      <Card className="w-full max-w-md shadow-xl animate-scale-in animate-delay-100">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 text-center">
           Join Quiz
         </h1>
