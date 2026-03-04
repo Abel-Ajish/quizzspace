@@ -4,12 +4,17 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Button, Input, Card, Tabs } from '@/components/ui';
 
+interface ReconnectSessionData {
+  status: 'waiting' | 'locked' | 'active' | 'paused' | 'finished';
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
   const [joinCode, setJoinCode] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [hasSavedJoin, setHasSavedJoin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -42,6 +47,50 @@ export default function Home() {
     localStorage.removeItem('last_join_code');
     localStorage.removeItem('last_player_name');
     setHasSavedJoin(false);
+  };
+
+  const handleReconnect = async () => {
+    if (typeof window === 'undefined') return;
+
+    const savedCode = (localStorage.getItem('last_join_code') || '').toUpperCase();
+    const savedName = localStorage.getItem('last_player_name') || '';
+
+    if (!savedCode || !savedName) {
+      setError('No saved session details found');
+      return;
+    }
+
+    setError('');
+    setIsReconnecting(true);
+
+    try {
+      const response = await fetch(`/api/session/${savedCode}?mode=lite`);
+      if (!response.ok) {
+        localStorage.removeItem('last_join_code');
+        localStorage.removeItem('last_player_name');
+        setHasSavedJoin(false);
+        throw new Error('Saved session no longer exists');
+      }
+
+      const sessionData: ReconnectSessionData = await response.json();
+
+      if (sessionData.status === 'waiting' || sessionData.status === 'locked') {
+        window.location.href = `/join?code=${savedCode}&name=${encodeURIComponent(savedName)}`;
+        return;
+      }
+
+      if (sessionData.status === 'active' || sessionData.status === 'paused') {
+        window.location.href = `/game/${savedCode}`;
+        return;
+      }
+
+      window.location.href = `/results/${savedCode}`;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reconnect to saved session');
+      console.error(err);
+    } finally {
+      setIsReconnecting(false);
+    }
   };
 
   const handleJoinSession = async (e: React.FormEvent) => {
@@ -124,12 +173,22 @@ export default function Home() {
                 />
 
                 {hasSavedJoin && (
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="w-full"
+                      isLoading={isReconnecting}
+                      onClick={handleReconnect}
+                    >
+                      Reconnect
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
                       onClick={handleUseSavedJoin}
                     >
                       Use Last Details
@@ -138,7 +197,7 @@ export default function Home() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="w-full"
                       onClick={handleClearSavedJoin}
                     >
                       Clear Saved
