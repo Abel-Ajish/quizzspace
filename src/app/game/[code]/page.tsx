@@ -20,7 +20,7 @@ interface Question {
 interface SessionData {
   id: string;
   joinCode: string;
-  status: 'waiting' | 'active' | 'finished';
+  status: 'waiting' | 'locked' | 'active' | 'paused' | 'finished';
   currentQuestionIndex: number;
   quiz: {
     id: string;
@@ -62,6 +62,7 @@ export default function GamePage() {
   const [error, setError] = useState('');
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [timeStarted, setTimeStarted] = useState<number>(0);
+  const [pauseStartedAt, setPauseStartedAt] = useState<number | null>(null);
   const [removed, setRemoved] = useState(false);
   const [hostCorrectChoiceId, setHostCorrectChoiceId] = useState<string | null>(null);
   const [hostCorrectChoiceText, setHostCorrectChoiceText] = useState<string | null>(null);
@@ -139,8 +140,12 @@ export default function GamePage() {
       router.push('/');
       return;
     }
+    let isPolling = false;
 
     const fetchSession = async () => {
+      if (isPolling) return;
+      isPolling = true;
+
       try {
         const response = await fetch(`/api/session/${code}`);
         if (!response.ok) throw new Error('Session not found');
@@ -167,6 +172,8 @@ export default function GamePage() {
       } catch (err) {
         console.error('Failed to fetch session:', err);
         setError('Failed to load session');
+      } finally {
+        isPolling = false;
       }
     };
 
@@ -194,10 +201,26 @@ export default function GamePage() {
     setHasSubmittedAnswer(false);
     setTimeStarted(0);
     setTimeLeft(0);
+    setPauseStartedAt(null);
     setHostCorrectChoiceId(null);
     setHostCorrectChoiceText(null);
     setAnswerFeedback(null);
   }, [currentQuestionIndex, setHasSubmittedAnswer]);
+
+  useEffect(() => {
+    if (!session || timeStarted === 0 || hasSubmittedAnswer) return;
+
+    if (session.status === 'paused' && pauseStartedAt === null) {
+      setPauseStartedAt(Date.now());
+      return;
+    }
+
+    if (session.status === 'active' && pauseStartedAt !== null) {
+      const pausedDuration = Date.now() - pauseStartedAt;
+      setTimeStarted((previous) => (previous === 0 ? 0 : previous + pausedDuration));
+      setPauseStartedAt(null);
+    }
+  }, [session, timeStarted, hasSubmittedAnswer, pauseStartedAt]);
 
   // Fetch correct answer for host display
   useEffect(() => {
@@ -222,6 +245,10 @@ export default function GamePage() {
   // Handle timer countdown
   useEffect(() => {
     if (!session) return;
+
+    if (session.status !== 'active') {
+      return;
+    }
 
     const currentQuestion = session.quiz.questions[session.currentQuestionIndex];
     if (!currentQuestion || hasSubmittedAnswer) return;
@@ -341,6 +368,42 @@ export default function GamePage() {
       }
     };
 
+    const handlePauseResume = async () => {
+      if (!session) return;
+
+      const action = session.status === 'paused' ? 'resume' : 'pause';
+
+      setIsSubmitting(true);
+      setError('');
+
+      try {
+        const response = await fetch('/api/session/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action,
+            sessionId: session.id,
+          }),
+        });
+
+        const controlData = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(controlData.error || `Failed to ${action} game`);
+        }
+
+        const sessionRes = await fetch(`/api/session/${code}`);
+        if (sessionRes.ok) {
+          const updatedSession = await sessionRes.json();
+          setSession(updatedSession);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : `Failed to ${action} game`);
+        console.error(err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
     // Show fullscreen leaderboard when in leaderboard phase (answers submitted)
     if (gamePhase === 'leaderboard') {
       return (
@@ -401,6 +464,7 @@ export default function GamePage() {
                   size="lg"
                   className="flex-1"
                   isLoading={isSubmitting}
+                  disabled={session.status !== 'active'}
                   onClick={handleNextQuestion}
                 >
                   ➜ Next Question
@@ -411,11 +475,19 @@ export default function GamePage() {
                   size="lg"
                   className="flex-1"
                   isLoading={isSubmitting}
+                  disabled={session.status !== 'active'}
                   onClick={handleNextQuestion}
                 >
                   🏁 End Game & View Results
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handlePauseResume}
+              >
+                {session.status === 'paused' ? 'Resume' : 'Pause'}
+              </Button>
               <Button
                 variant="outline"
                 size="lg"
@@ -452,6 +524,12 @@ export default function GamePage() {
           {error && (
             <Alert variant="error" className="mb-6 animate-slide-up">
               ❌ {error}
+            </Alert>
+          )}
+
+          {session.status === 'paused' && (
+            <Alert variant="warning" className="mb-6 animate-slide-up">
+              ⏸️ Game is paused. Resume to continue the timer and allow answers.
             </Alert>
           )}
 
@@ -496,27 +574,39 @@ export default function GamePage() {
                         </div>
                       )}
                     </div>
-                    {session.currentQuestionIndex < session.quiz.questions.length - 1 ? (
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      {session.currentQuestionIndex < session.quiz.questions.length - 1 ? (
+                        <Button
+                          variant="primary"
+                          size="lg"
+                          className="w-full"
+                          isLoading={isSubmitting}
+                          disabled={session.status !== 'active'}
+                          onClick={handleNextQuestion}
+                        >
+                          ➜ Next Question
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="lg"
+                          className="w-full"
+                          isLoading={isSubmitting}
+                          disabled={session.status !== 'active'}
+                          onClick={handleNextQuestion}
+                        >
+                          🏁 End Game
+                        </Button>
+                      )}
                       <Button
-                        variant="primary"
+                        variant="outline"
                         size="lg"
-                        className="w-full"
-                        isLoading={isSubmitting}
-                        onClick={handleNextQuestion}
+                        className="w-full sm:w-auto"
+                        onClick={handlePauseResume}
                       >
-                        ➜ Next Question
+                        {session.status === 'paused' ? 'Resume' : 'Pause'}
                       </Button>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        className="w-full"
-                        isLoading={isSubmitting}
-                        onClick={handleNextQuestion}
-                      >
-                        🏁 End Game
-                      </Button>
-                    )}
+                    </div>
                   </>
                 ) : (
                   <div className="text-center p-8 animate-slide-up">
@@ -585,7 +675,7 @@ export default function GamePage() {
     );
   }
 
-  const isAnswerLocked = hasSubmittedAnswer || timeLeft === 0;
+  const isAnswerLocked = hasSubmittedAnswer || timeLeft === 0 || session.status !== 'active';
   const timerColor =
     timeLeft > 10 ? 'text-green-600 dark:text-green-400' : timeLeft > 5 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400';
 
@@ -619,6 +709,12 @@ export default function GamePage() {
         {error && (
           <Alert variant="error" className="mb-6 animate-slide-up">
             ❌ {error}
+          </Alert>
+        )}
+
+        {session.status === 'paused' && (
+          <Alert variant="warning" className="mb-6 animate-slide-up">
+            ⏸️ The host paused the game. Your timer is frozen until it resumes.
           </Alert>
         )}
 
@@ -687,7 +783,14 @@ export default function GamePage() {
           </div>
 
           {/* Submit Button */}
-          {!isAnswerLocked ? (
+          {session.status === 'paused' ? (
+            <div className="mt-8 p-4 bg-gradient-to-r from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-lg text-center border-2 border-yellow-300 dark:border-yellow-700 animate-slide-up">
+              <p className="font-bold text-yellow-900 dark:text-yellow-100 text-lg">
+                ⏸️ Game Paused
+              </p>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-2">Waiting for host to resume...</p>
+            </div>
+          ) : !isAnswerLocked ? (
             <Button
               variant="primary"
               size="lg"

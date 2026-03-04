@@ -14,7 +14,7 @@ interface Player {
 interface SessionData {
   id: string;
   joinCode: string;
-  status: 'waiting' | 'active' | 'finished';
+  status: 'waiting' | 'locked' | 'active' | 'paused' | 'finished';
   currentQuestionIndex: number;
   quiz: {
     id: string;
@@ -41,10 +41,16 @@ export default function LobbyPage() {
       router.push('/');
       return;
     }
+    let isPolling = false;
 
     const fetchSession = async () => {
+      if (isPolling) {
+        return;
+      }
+
+      isPolling = true;
       try {
-        const response = await fetch(`/api/session/${code}`);
+        const response = await fetch(`/api/session/${code}?mode=lite`);
         if (!response.ok) throw new Error('Session not found');
 
         const data: SessionData = await response.json();
@@ -60,14 +66,20 @@ export default function LobbyPage() {
           return; // Stop further processing
         }
 
-        // If game starts, redirect to game page
+        // If game starts or resumes, redirect to game page
         if (data.status === 'active') {
           setGamePhase('question');
           router.push(`/game/${code}`);
         }
+
+        if (data.status === 'finished') {
+          setGamePhase('finished');
+          router.push(`/results/${code}`);
+        }
       } catch (err) {
         console.error('Failed to fetch session:', err);
       } finally {
+        isPolling = false;
         setIsLoading(false);
       }
     };
@@ -152,6 +164,12 @@ export default function LobbyPage() {
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 font-medium">
             ⏳ Waiting for the host to start the game...
           </p>
+
+          {session.status === 'locked' && (
+            <Alert variant="warning" className="mb-4">
+              🔒 Lobby is locked. New players cannot join until host unlocks it.
+            </Alert>
+          )}
 
           <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 p-4 rounded-lg mb-6 border border-slate-200 dark:border-slate-500 transition-all duration-300">
             <p className="text-sm font-medium text-slate-900 dark:text-white mb-3">

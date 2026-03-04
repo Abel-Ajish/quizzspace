@@ -9,34 +9,69 @@ export async function GET(
 ) {
   try {
     const { code } = await params;
+    const mode = req.nextUrl.searchParams.get('mode');
 
     if (!isValidCode(code)) {
       throw ApiErrors.INVALID_CODE;
     }
 
-    const session = await prisma.session.findUnique({
-      where: { joinCode: code },
-      include: {
-        quiz: {
-          include: {
-            questions: {
-              orderBy: { orderIndex: 'asc' },
-              include: {
-                choices: {
+    const session = mode === 'lite'
+      ? await prisma.session.findUnique({
+          where: { joinCode: code },
+          select: {
+            id: true,
+            joinCode: true,
+            status: true,
+            currentQuestionIndex: true,
+            createdAt: true,
+            updatedAt: true,
+            startedAt: true,
+            endedAt: true,
+            quiz: {
+              select: {
+                id: true,
+                title: true,
+                questions: {
+                  orderBy: { orderIndex: 'asc' },
                   select: {
                     id: true,
-                    text: true,
                   },
                 },
               },
             },
+            players: {
+              orderBy: { score: 'desc' },
+              select: {
+                id: true,
+                name: true,
+                score: true,
+              },
+            },
           },
-        },
-        players: {
-          orderBy: { score: 'desc' },
-        },
-      },
-    });
+        })
+      : await prisma.session.findUnique({
+          where: { joinCode: code },
+          include: {
+            quiz: {
+              include: {
+                questions: {
+                  orderBy: { orderIndex: 'asc' },
+                  include: {
+                    choices: {
+                      select: {
+                        id: true,
+                        text: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            players: {
+              orderBy: { score: 'desc' },
+            },
+          },
+        });
 
     if (!session) {
       throw ApiErrors.INVALID_CODE;

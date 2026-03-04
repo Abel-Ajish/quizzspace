@@ -27,7 +27,7 @@ interface Choice {
 interface SessionData {
   id: string;
   joinCode: string;
-  status: 'waiting' | 'active' | 'finished';
+  status: 'waiting' | 'locked' | 'active' | 'paused' | 'finished';
   currentQuestionIndex: number;
   players: Player[];
 }
@@ -50,6 +50,7 @@ export default function HostDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [sessionCreated, setSessionCreated] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
   const joinCode = session?.joinCode;
@@ -90,18 +91,24 @@ export default function HostDashboard() {
   // Poll for session updates
   useEffect(() => {
     if (!joinCode) return;
+    let isPolling = false;
 
     const pollInterval = setInterval(async () => {
+      if (isPolling) return;
+
+      isPolling = true;
       try {
-        const response = await fetch(`/api/session/${joinCode}`);
+        const response = await fetch(`/api/session/${joinCode}?mode=lite`);
         if (response.ok) {
           const updatedSession = await response.json();
           setSessionData(updatedSession);
         }
       } catch (err) {
         console.error('Failed to poll session:', err);
+      } finally {
+        isPolling = false;
       }
-    }, 1500); // Poll every 1.5 seconds
+    }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(pollInterval);
   }, [joinCode]);
@@ -213,6 +220,36 @@ export default function HostDashboard() {
       console.error(err);
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  const handleSessionAction = async (action: 'lock' | 'unlock') => {
+    if (!session) return;
+
+    setActiveAction(action);
+    setError('');
+    try {
+      const response = await fetch('/api/session/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          sessionId: session.id,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to ${action} lobby`);
+      }
+
+      setSessionData(data);
+      setSession(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to ${action} lobby`);
+      console.error(err);
+    } finally {
+      setActiveAction(null);
     }
   };
 
@@ -332,6 +369,12 @@ export default function HostDashboard() {
                 )}
               </div>
 
+              {session?.status === 'locked' && (
+                <Alert variant="warning" className="mb-6">
+                  🔒 Lobby is locked. New players cannot join until you unlock it.
+                </Alert>
+              )}
+
               {session?.players && session.players.length > 0 && (
                 <div className="mb-6 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800">
                   <h3 className="font-semibold mb-3 text-slate-900 dark:text-white flex items-center gap-2">
@@ -363,21 +406,45 @@ export default function HostDashboard() {
                 </div>
               )}
 
-              {session && session.status === 'waiting' && (
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  className="w-full"
-                  isLoading={isStarting}
-                  onClick={handleStartGame}
-                >
-                  Start Game
-                </Button>
+              {session && (session.status === 'waiting' || session.status === 'locked') && (
+                <div className="space-y-3">
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    className="w-full"
+                    isLoading={isStarting}
+                    onClick={handleStartGame}
+                  >
+                    Start Game
+                  </Button>
+
+                  {session.status === 'waiting' ? (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full"
+                      isLoading={activeAction === 'lock'}
+                      onClick={() => handleSessionAction('lock')}
+                    >
+                      Lock Lobby
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full"
+                      isLoading={activeAction === 'unlock'}
+                      onClick={() => handleSessionAction('unlock')}
+                    >
+                      Unlock Lobby
+                    </Button>
+                  )}
+                </div>
               )}
 
-              {session && session.status !== 'waiting' && (
+              {session && session.status !== 'waiting' && session.status !== 'locked' && (
                 <p className="text-center text-slate-600 dark:text-slate-400">
-                  Game is {session.status === 'active' ? 'in progress' : 'finished'}
+                  Game is {session.status === 'active' ? 'in progress' : session.status}
                 </p>
               )}
             </div>
