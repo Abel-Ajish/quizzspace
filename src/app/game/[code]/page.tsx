@@ -30,6 +30,19 @@ interface SessionData {
   players: Player[];
 }
 
+interface LiteSessionData {
+  id: string;
+  joinCode: string;
+  status: 'waiting' | 'locked' | 'active' | 'paused' | 'finished';
+  currentQuestionIndex: number;
+  quiz: {
+    id: string;
+    title: string;
+    questions: Array<{ id: string }>;
+  };
+  players: Player[];
+}
+
 interface Player {
   id: string;
   name: string;
@@ -70,6 +83,24 @@ export default function GamePage() {
   const [hostCorrectChoiceText, setHostCorrectChoiceText] = useState<string | null>(null);
   const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback | null>(null);
   const currentQuestionIndex = session?.currentQuestionIndex;
+
+  const mergeLiteSession = useCallback((data: LiteSessionData) => {
+    setSession((current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        status: data.status,
+        currentQuestionIndex: data.currentQuestionIndex,
+        players: data.players,
+        quiz: {
+          ...current.quiz,
+          id: data.quiz.id,
+          title: data.quiz.title,
+        },
+      };
+    });
+  }, []);
 
   const handleSubmitAnswer = useCallback(async () => {
     if (!selectedChoiceId || !currentPlayer || !session) return;
@@ -144,22 +175,28 @@ export default function GamePage() {
     }
     let isPolling = false;
 
+    let hasFullSession = false;
+
     const fetchSession = async () => {
       if (isPolling) return;
       isPolling = true;
 
       try {
-        const response = await fetch(`/api/session/${code}`);
+        const response = await fetch(`/api/session/${code}?mode=lite`);
         if (!response.ok) throw new Error('Session not found');
 
-        const data: SessionData = await response.json();
+        const data: LiteSessionData = await response.json();
 
-        if (isReconnecting) {
-          setIsReconnecting(false);
-          setShowReconnected(true);
+        setIsReconnecting((prev) => {
+          if (prev) {
+            setShowReconnected(true);
+          }
+          return false;
+        });
+
+        if (hasFullSession) {
+          mergeLiteSession(data);
         }
-
-        setSession(data);
 
         // For players (not host): check if they are still in the session
         if (currentPlayer && !isHost) {
@@ -186,10 +223,27 @@ export default function GamePage() {
       }
     };
 
-    fetchSession();
-    const sessionInterval = setInterval(fetchSession, 3000);
+    const fetchFullSession = async () => {
+      try {
+        const response = await fetch(`/api/session/${code}`);
+        if (!response.ok) throw new Error('Session not found');
+
+        const data: SessionData = await response.json();
+        setSession(data);
+        hasFullSession = true;
+      } catch (err) {
+        console.error('Failed to fetch full session:', err);
+        setError('Failed to load session');
+      }
+    };
+
+    fetchFullSession().then(() => {
+      fetchSession();
+    });
+
+    const sessionInterval = setInterval(fetchSession, 2500);
     return () => clearInterval(sessionInterval);
-  }, [code, currentPlayer, isHost, router, setGamePhase, wasRemoved, setWasRemoved]);
+  }, [code, currentPlayer, isHost, router, setGamePhase, wasRemoved, setWasRemoved, mergeLiteSession]);
 
   // Handle removed state — show message then redirect
   useEffect(() => {
@@ -366,10 +420,10 @@ export default function GamePage() {
         if (!response.ok) throw new Error('Failed to advance question');
 
         // Fetch updated session
-        const sessionRes = await fetch(`/api/session/${code}`);
+        const sessionRes = await fetch(`/api/session/${code}?mode=lite`);
         if (sessionRes.ok) {
-          const updatedSession = await sessionRes.json();
-          setSession(updatedSession);
+          const updatedSession: LiteSessionData = await sessionRes.json();
+          mergeLiteSession(updatedSession);
 
           if (updatedSession.status === 'finished') {
             setGamePhase('finished');
@@ -407,10 +461,10 @@ export default function GamePage() {
           throw new Error(controlData.error || `Failed to ${action} game`);
         }
 
-        const sessionRes = await fetch(`/api/session/${code}`);
+        const sessionRes = await fetch(`/api/session/${code}?mode=lite`);
         if (sessionRes.ok) {
-          const updatedSession = await sessionRes.json();
-          setSession(updatedSession);
+          const updatedSession: LiteSessionData = await sessionRes.json();
+          mergeLiteSession(updatedSession);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : `Failed to ${action} game`);
