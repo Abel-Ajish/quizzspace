@@ -44,7 +44,7 @@ export default function ResultsPage() {
 
     const fetchSession = async () => {
       try {
-        const response = await fetch(`/api/session/${code}`);
+        const response = await fetch(`/api/session/${code}?mode=lite`);
         if (!response.ok) throw new Error('Session not found');
 
         const data: SessionData = await response.json();

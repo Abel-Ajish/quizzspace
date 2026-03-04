@@ -3,8 +3,14 @@ import { handleErrorResponse, successResponse } from '@/lib/api-errors';
 import { prisma } from '@/lib/prisma';
 import { broadcastToSession, eventNames } from '@/lib/pusher';
 import { checkRateLimit, getRequestIdentifier } from '@/lib/rate-limit';
+import { acquireLoadSlot } from '@/lib/load-balancer';
 
 export async function POST(req: NextRequest) {
+  const slot = acquireLoadSlot('session:control', 60);
+  if (!slot.acquired) {
+    return successResponse({ error: 'Server is busy. Please retry shortly.' }, 503);
+  }
+
   try {
     const ip = getRequestIdentifier(req);
     const rate = checkRateLimit(`session:control:${ip}`, 120, 60_000);
@@ -237,5 +243,9 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     return handleErrorResponse(error);
+  } finally {
+    if (slot.acquired) {
+      slot.release();
+    }
   }
 }

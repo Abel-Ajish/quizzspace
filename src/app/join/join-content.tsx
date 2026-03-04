@@ -31,7 +31,7 @@ export function JoinPageContent() {
       setError('');
 
       try {
-        const sessionRes = await fetch(`/api/session/${code}`);
+        const sessionRes = await fetch(`/api/session/${code}?mode=lite`);
         if (!sessionRes.ok) {
           throw new Error('Invalid join code or session not found');
         }

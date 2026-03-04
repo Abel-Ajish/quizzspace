@@ -10,6 +10,7 @@ type PlayerRemovedEvent = {
 
 export function PusherProvider({ children }: { children: React.ReactNode }) {
   const pusherRef = useRef<PusherJs | null>(null);
+  const pendingRefreshTimeoutRef = useRef<number | null>(null);
   const { session, setSession, setGamePhase, isHost } = useGame();
 
   useEffect(() => {
@@ -59,15 +60,26 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
+      const scheduleSessionRefresh = () => {
+        if (pendingRefreshTimeoutRef.current !== null) {
+          window.clearTimeout(pendingRefreshTimeoutRef.current);
+        }
+
+        pendingRefreshTimeoutRef.current = window.setTimeout(() => {
+          pendingRefreshTimeoutRef.current = null;
+          fetchUpdatedSession();
+        }, 150);
+      };
+
       // Real-time event listeners
       channel.bind('player_joined', (data: unknown) => {
         console.log('Player joined:', data);
-        fetchUpdatedSession();
+        scheduleSessionRefresh();
       });
 
       channel.bind('player_removed', (data: PlayerRemovedEvent) => {
         console.log('Player removed:', data);
-        fetchUpdatedSession();
+        scheduleSessionRefresh();
         // If current player was removed, redirect to home
         if (data.playerId === sessionStorage.getItem('currentPlayerId')) {
           alert('You have been removed from the session by the host.');
@@ -77,7 +89,7 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
 
       channel.bind('question_start', (data: unknown) => {
         console.log('Question started:', data);
-        fetchUpdatedSession();
+        scheduleSessionRefresh();
         if (isHost) {
           setGamePhase('question');
         }
@@ -85,7 +97,7 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
 
       channel.bind('leaderboard_update', (data: unknown) => {
         console.log('Leaderboard updated:', data);
-        fetchUpdatedSession();
+        scheduleSessionRefresh();
         if (isHost) {
           setGamePhase('leaderboard');
         }
@@ -93,13 +105,17 @@ export function PusherProvider({ children }: { children: React.ReactNode }) {
 
       channel.bind('game_over', (data: unknown) => {
         console.log('Game over:', data);
-        fetchUpdatedSession();
+        scheduleSessionRefresh();
         if (isHost) {
           setGamePhase('finished');
         }
       });
 
       return () => {
+        if (pendingRefreshTimeoutRef.current !== null) {
+          window.clearTimeout(pendingRefreshTimeoutRef.current);
+          pendingRefreshTimeoutRef.current = null;
+        }
         channel.unbind_all();
       };
     } catch (err) {
