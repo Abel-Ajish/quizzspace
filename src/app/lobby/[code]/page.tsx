@@ -152,7 +152,7 @@ export default function LobbyPage() {
     fetchSession();
 
     let pusher: PusherJs | null = null;
-    let channel: PusherJs.Channel | null = null;
+    let channel: ReturnType<InstanceType<typeof PusherJs>['subscribe']> | null = null;
     if (process.env.NEXT_PUBLIC_PUSHER_KEY) {
       try {
         pusher = new PusherJs(process.env.NEXT_PUBLIC_PUSHER_KEY, {
