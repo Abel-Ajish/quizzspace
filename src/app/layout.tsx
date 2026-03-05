@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { GameProvider } from "@/contexts/GameContext";
-import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 
 export const metadata: Metadata = {
   title: "LiveQuiz MVP",
@@ -26,11 +25,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased" suppressHydrationWarning>
         <GameProvider>
-          <RealtimeProvider>
-            <div className="animate-fade-in animate-slide-up">
-              {children}
-            </div>
-          </RealtimeProvider>
+          <div className="animate-fade-in animate-slide-up">
+            {children}
+          </div>
         </GameProvider>
       </body>
     </html>
