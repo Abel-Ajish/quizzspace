@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { Button, Card, Alert } from '@/components/ui';
 
+const RETRY_KEY = 'route_error_autoretry';
+
 export default function ErrorPage({
   error,
   reset,
@@ -13,6 +15,27 @@ export default function ErrorPage({
   useEffect(() => {
     console.error('App route error:', error);
   }, [error]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const now = Date.now();
+    const route = window.location.pathname;
+    const key = `${RETRY_KEY}:${route}`;
+    const last = Number.parseInt(sessionStorage.getItem(key) || '0', 10);
+
+    // Auto-retry once for transient navigation/render races.
+    if (!Number.isNaN(last) && now - last < 5000) {
+      return;
+    }
+
+    sessionStorage.setItem(key, String(now));
+    const timer = window.setTimeout(() => {
+      reset();
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [reset]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-linear-to-br from-red-50 to-pink-100 dark:from-slate-900 dark:to-slate-800 animate-fade-in">

@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { Card, Button, Alert } from '@/components/ui';
 
+const RETRY_KEY = 'global_error_autoretry';
+
 export default function GlobalError({
   error,
   reset,
@@ -13,6 +15,27 @@ export default function GlobalError({
   useEffect(() => {
     console.error('Global app error:', error);
   }, [error]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const now = Date.now();
+    const route = window.location.pathname;
+    const key = `${RETRY_KEY}:${route}`;
+    const last = Number.parseInt(sessionStorage.getItem(key) || '0', 10);
+
+    // Auto-retry once for transient navigation/render races.
+    if (!Number.isNaN(last) && now - last < 5000) {
+      return;
+    }
+
+    sessionStorage.setItem(key, String(now));
+    const timer = window.setTimeout(() => {
+      reset();
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [reset]);
 
   return (
     <html lang="en">
