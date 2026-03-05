@@ -5,25 +5,45 @@ type RealtimePublisher = {
   publish: (channel: string, event: string, data: Record<string, unknown>) => Promise<void>;
 };
 
-// Create Ably REST instance if credentials are available, otherwise use no-op fallback.
-let realtimePublisher: RealtimePublisher | null = null;
+let ablyRestClient: Ably.Rest | null = null;
+let invalidKeyLogged = false;
 
-const env = getEnv();
+function getAblyRestClient(): Ably.Rest | null {
+  if (ablyRestClient) {
+    return ablyRestClient;
+  }
 
-if (env.ABLY_API_KEY) {
-  const ably = new Ably.Rest(env.ABLY_API_KEY);
-  realtimePublisher = {
-    publish: async (channel, event, data) => {
-      await ably.channels.get(channel).publish(event, data);
-    },
-  };
-} else if (env.NODE_ENV === 'production') {
-  console.warn('Ably env var is missing; app will run with polling fallback.');
+  const env = getEnv();
+  const rawKey = env.ABLY_API_KEY?.trim();
+
+  if (!rawKey) {
+    if (env.NODE_ENV === 'production') {
+      console.warn('Ably env var is missing; app will run with polling fallback.');
+    }
+    return null;
+  }
+
+  try {
+    ablyRestClient = new Ably.Rest(rawKey);
+    return ablyRestClient;
+  } catch (error) {
+    if (!invalidKeyLogged) {
+      console.error('Failed to initialize Ably REST client; falling back to polling.', error);
+      invalidKeyLogged = true;
+    }
+    return null;
+  }
 }
 
-// Export a mock/real publisher
-export const realtime = realtimePublisher || {
-  publish: async () => {},
+export const realtime: RealtimePublisher = {
+  publish: async (channel, event, data) => {
+    const client = getAblyRestClient();
+    if (!client) {
+      return;
+    }
+
+    await client.channels.get(channel).publish(event, data);
+  },
 };
 
 // Channel naming conventions
