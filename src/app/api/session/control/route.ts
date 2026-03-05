@@ -56,6 +56,22 @@ export async function POST(req: NextRequest) {
       return successResponse({ error: 'Session not found' }, 404);
     }
 
+    const sessionInclude = {
+      quiz: {
+        include: {
+          questions: {
+            orderBy: { orderIndex: 'asc' as const },
+            include: {
+              choices: {
+                select: { id: true, text: true },
+              },
+            },
+          },
+        },
+      },
+      players: { orderBy: { score: 'desc' as const } },
+    };
+
     if (action === 'start') {
       if (session.status !== 'waiting' && session.status !== 'locked') {
         return successResponse({ error: 'Session has already been started' }, 400);
@@ -73,21 +89,7 @@ export async function POST(req: NextRequest) {
           startedAt: new Date(),
           currentQuestionIndex: 0,
         },
-        include: {
-          quiz: {
-            include: {
-              questions: {
-                orderBy: { orderIndex: 'asc' },
-                include: {
-                  choices: {
-                    select: { id: true, text: true },
-                  },
-                },
-              },
-            },
-          },
-          players: { orderBy: { score: 'desc' } },
-        },
+        include: sessionInclude,
       });
 
       const currentQuestion = session.quiz.questions[0];
@@ -110,6 +112,7 @@ export async function POST(req: NextRequest) {
         data: {
           status: 'paused',
         },
+        include: sessionInclude,
       });
 
       await broadcastToSession(session.joinCode, eventNames.SESSION_PAUSED, {
@@ -128,6 +131,7 @@ export async function POST(req: NextRequest) {
         data: {
           status: 'active',
         },
+        include: sessionInclude,
       });
 
       await broadcastToSession(session.joinCode, eventNames.SESSION_RESUMED, {
@@ -146,6 +150,7 @@ export async function POST(req: NextRequest) {
         data: {
           status: 'locked',
         },
+        include: sessionInclude,
       });
 
       await broadcastToSession(session.joinCode, eventNames.LOBBY_LOCKED, {
@@ -163,6 +168,7 @@ export async function POST(req: NextRequest) {
         data: {
           status: 'waiting',
         },
+        include: sessionInclude,
       });
 
       await broadcastToSession(session.joinCode, eventNames.LOBBY_UNLOCKED, {
@@ -190,6 +196,7 @@ export async function POST(req: NextRequest) {
             status: 'finished',
             endedAt: new Date(),
           },
+          include: sessionInclude,
         });
 
         const finalLeaderboard = await prisma.player.findMany({
@@ -209,21 +216,7 @@ export async function POST(req: NextRequest) {
         data: {
           currentQuestionIndex: nextIndex,
         },
-        include: {
-          quiz: {
-            include: {
-              questions: {
-                orderBy: { orderIndex: 'asc' },
-                include: {
-                  choices: {
-                    select: { id: true, text: true },
-                  },
-                },
-              },
-            },
-          },
-          players: { orderBy: { score: 'desc' } },
-        },
+        include: sessionInclude,
       });
 
       const nextQuestion = session.quiz.questions[nextIndex];

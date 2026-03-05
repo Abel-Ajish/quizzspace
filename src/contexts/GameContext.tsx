@@ -179,10 +179,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const currentQuestion =
-    session && session.currentQuestionIndex < session.quiz.questions.length
-      ? session.quiz.questions[session.currentQuestionIndex]
-      : null;
+  const questions = session?.quiz?.questions;
+  const hasValidQuestionIndex =
+    Array.isArray(questions) &&
+    typeof session?.currentQuestionIndex === 'number' &&
+    session.currentQuestionIndex >= 0 &&
+    session.currentQuestionIndex < questions.length;
+  const currentQuestion = hasValidQuestionIndex
+    ? questions[session!.currentQuestionIndex]
+    : null;
 
   return (
     <GameContext.Provider
