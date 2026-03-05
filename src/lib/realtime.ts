@@ -7,6 +7,7 @@ type RealtimePublisher = {
 
 let ablyRestClient: Ably.Rest | null = null;
 let invalidKeyLogged = false;
+let publishFailureLogged = false;
 
 function getAblyRestClient(): Ably.Rest | null {
   if (ablyRestClient) {
@@ -42,7 +43,19 @@ export const realtime: RealtimePublisher = {
       return;
     }
 
-    await client.channels.get(channel).publish(event, data);
+    try {
+      await client.channels.get(channel).publish(event, data);
+    } catch (error) {
+      // Realtime is optional for MVP because polling keeps clients in sync.
+      // Do not fail API requests when Ably key capability is restricted/misconfigured.
+      if (!publishFailureLogged) {
+        console.error(
+          `Ably publish failed for ${channel}/${event}; continuing with polling fallback.`,
+          error
+        );
+        publishFailureLogged = true;
+      }
+    }
   },
 };
 
