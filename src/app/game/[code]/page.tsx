@@ -85,6 +85,20 @@ export default function GamePage() {
   const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback | null>(null);
   const currentQuestionIndex = session?.currentQuestionIndex;
   const sessionEtagRef = useRef<string | null>(null);
+  const hasNavigatedRef = useRef(false);
+
+  const pushOnce = useCallback(
+    (path: string) => {
+      if (hasNavigatedRef.current) return;
+      hasNavigatedRef.current = true;
+      router.push(path);
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    hasNavigatedRef.current = false;
+  }, [code]);
 
   const mergeLiteSession = useCallback((data: LiteSessionData) => {
     setSession((current) => {
@@ -176,7 +190,7 @@ export default function GamePage() {
 
     // If this player was previously removed, redirect immediately
     if (wasRemoved && !isHost) {
-      router.push('/');
+      pushOnce('/');
       return;
     }
     sessionEtagRef.current = null;
@@ -257,7 +271,7 @@ export default function GamePage() {
 
         if (data.status === 'finished') {
           setGamePhase('finished');
-          router.push(`/results/${code}`);
+          pushOnce(`/results/${code}`);
         }
       } catch (err) {
         console.error('Failed to fetch session:', err);
@@ -341,18 +355,18 @@ export default function GamePage() {
         realtime.close();
       }
     };
-  }, [code, currentPlayer, isHost, router, setGamePhase, wasRemoved, setWasRemoved, mergeLiteSession]);
+  }, [code, currentPlayer, isHost, pushOnce, setGamePhase, wasRemoved, setWasRemoved, mergeLiteSession]);
 
   // Handle removed state — show message then redirect
   useEffect(() => {
     if (removed) {
       const timer = setTimeout(() => {
         reset();
-        router.push('/');
+        pushOnce('/');
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [removed, reset, router]);
+  }, [removed, reset, pushOnce]);
 
   useEffect(() => {
     if (!showReconnected) return;
@@ -532,7 +546,7 @@ export default function GamePage() {
 
           if (updatedSession.status === 'finished') {
             setGamePhase('finished');
-            router.push(`/results/${code}`);
+            pushOnce(`/results/${code}`);
           }
         }
       } catch (err) {
@@ -814,7 +828,7 @@ export default function GamePage() {
                       variant="primary"
                       size="lg"
                       className="w-full"
-                      onClick={() => router.push(`/results/${code}`)}
+                      onClick={() => pushOnce(`/results/${code}`)}
                     >
                       View Results
                     </Button>

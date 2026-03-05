@@ -83,7 +83,11 @@ export default function ResultsPage() {
     );
   }
 
-  const sortedPlayers = [...session.players].sort((a, b) => {
+  const players = Array.isArray(session.players) ? session.players : [];
+  const quizTitle = session.quiz?.title ?? 'Quiz Results';
+  const quizId = session.quiz?.id;
+
+  const sortedPlayers = [...players].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
 
     const byName = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
@@ -120,7 +124,7 @@ export default function ResultsPage() {
             🎉 Quiz Complete!
           </h1>
           <p className="text-lg text-slate-600 dark:text-slate-400 mb-6 font-medium">
-            {session.quiz.title}
+            {quizTitle}
             {isHost && !currentPlayer && ' - Host View'}
           </p>
 
@@ -190,7 +194,7 @@ export default function ResultsPage() {
               className="flex-1 sm:flex-0"
               onClick={() => {
                 reset();
-                router.push(`/host/${session.quiz.id}`);
+                router.push(quizId ? `/host/${quizId}` : '/');
               }}
             >
               🎮 Host Quiz Again
