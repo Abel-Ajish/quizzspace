@@ -38,11 +38,18 @@ export default function LobbyPage() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [showReconnected, setShowReconnected] = useState(false);
   const sessionEtagRef = useRef<string | null>(null);
+  const hasNavigatedRef = useRef(false);
+
+  const navigateOnce = (path: string) => {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    window.location.assign(path);
+  };
 
   // Poll for session updates
   useEffect(() => {
     if (!currentPlayer) {
-      router.push('/');
+      navigateOnce('/');
       return;
     }
     sessionEtagRef.current = null;
@@ -120,12 +127,12 @@ export default function LobbyPage() {
         // If game starts or resumes, redirect to game page
         if (data.status === 'active') {
           setGamePhase('question');
-          router.push(`/game/${code}`);
+          navigateOnce(`/game/${code}`);
         }
 
         if (data.status === 'finished') {
           setGamePhase('finished');
-          router.push(`/results/${code}`);
+          navigateOnce(`/results/${code}`);
         }
       } catch (err) {
         console.error('Failed to fetch session:', err);
@@ -191,18 +198,18 @@ export default function LobbyPage() {
         realtime.close();
       }
     };
-  }, [code, currentPlayer, router, setGamePhase, setWasRemoved]);
+  }, [code, currentPlayer, setGamePhase, setWasRemoved]);
 
   // Handle removed state — show message then redirect
   useEffect(() => {
     if (removed) {
       const timer = setTimeout(() => {
         reset();
-        router.push('/');
+        navigateOnce('/');
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [removed, reset, router]);
+  }, [removed, reset]);
 
   useEffect(() => {
     if (!showReconnected) return;
